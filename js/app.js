@@ -3,6 +3,7 @@
 let activeTrip = null;
 let pendingPhotoDataUrl = null;
 let selectedPeopleIds = new Set();
+let attributionMode = "everyone"; // 'everyone' | 'custom' | 'single'
 let editingSetupPeople = [];
 let expandedItemId = null;
 let vatPriceAuto = true;
@@ -70,7 +71,7 @@ function cacheEls() {
   els.vatPriceRow = document.getElementById("vatPriceRow");
   els.itemVatPriceInput = document.getElementById("itemVatPriceInput");
   els.attributionPeopleList = document.getElementById("attributionPeopleList");
-  els.selectAllPeopleBtn = document.getElementById("selectAllPeopleBtn");
+  els.modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
   els.saveItemBtn = document.getElementById("saveItemBtn");
 
   els.summaryModal = document.getElementById("summaryModal");
@@ -132,9 +133,8 @@ function bindEvents() {
   });
   els.closeModalBtn.addEventListener("click", closeItemModal);
 
-  els.selectAllPeopleBtn.addEventListener("click", () => {
-    selectedPeopleIds = new Set(activeTrip.people.map((p) => p.id));
-    renderAttributionPeopleList();
+  els.modeButtons.forEach((btn) => {
+    btn.addEventListener("click", () => setAttributionMode(btn.dataset.mode));
   });
 
   els.vatToggle.addEventListener("change", () => {
@@ -562,11 +562,22 @@ function openItemModal(photoDataUrl, existingItem) {
     els.itemPhotoPreview.classList.add("hidden");
   }
 
-  const defaultTargets =
+  const targets =
     existingItem && existingItem.attributedTo && existingItem.attributedTo.length > 0
       ? existingItem.attributedTo
       : activeTrip.people.map((p) => p.id);
-  selectedPeopleIds = new Set(defaultTargets);
+
+  if (targets.length === activeTrip.people.length) {
+    attributionMode = "everyone";
+    selectedPeopleIds = new Set();
+  } else if (targets.length === 1) {
+    attributionMode = "single";
+    selectedPeopleIds = new Set(targets);
+  } else {
+    attributionMode = "custom";
+    selectedPeopleIds = new Set(targets);
+  }
+  updateModeButtons();
   renderAttributionPeopleList();
 
   els.saveItemBtn.textContent = existingItem ? "Save Changes" : "Save Item";
@@ -581,29 +592,45 @@ function closeItemModal() {
   editingItemId = null;
 }
 
+function setAttributionMode(mode) {
+  attributionMode = mode;
+  selectedPeopleIds = new Set();
+  updateModeButtons();
+  renderAttributionPeopleList();
+}
+
+function updateModeButtons() {
+  els.modeButtons.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === attributionMode);
+  });
+}
+
 function renderAttributionPeopleList() {
   els.attributionPeopleList.innerHTML = "";
 
+  if (attributionMode === "everyone") {
+    els.attributionPeopleList.classList.add("hidden");
+    return;
+  }
+  els.attributionPeopleList.classList.remove("hidden");
+
   activeTrip.people.forEach((person) => {
     const li = document.createElement("li");
-    li.className = "people-check-row";
-    const checked = selectedPeopleIds.has(person.id);
-    if (checked) li.classList.add("checked");
+    li.textContent = person.name;
+    li.dataset.personId = person.id;
+    if (selectedPeopleIds.has(person.id)) li.classList.add("selected");
 
-    const checkboxId = `personCheck_${person.id}`;
-    li.innerHTML = `
-      <input type="checkbox" id="${checkboxId}" ${checked ? "checked" : ""} />
-      <label class="person-name" for="${checkboxId}">${escapeHtml(person.name)}</label>
-    `;
-
-    const checkbox = li.querySelector("input");
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        selectedPeopleIds.add(person.id);
+    li.addEventListener("click", () => {
+      if (attributionMode === "single") {
+        selectedPeopleIds = new Set([person.id]);
       } else {
-        selectedPeopleIds.delete(person.id);
+        if (selectedPeopleIds.has(person.id)) {
+          selectedPeopleIds.delete(person.id);
+        } else {
+          selectedPeopleIds.add(person.id);
+        }
       }
-      li.classList.toggle("checked", checkbox.checked);
+      renderAttributionPeopleList();
     });
 
     els.attributionPeopleList.appendChild(li);
@@ -633,10 +660,15 @@ function saveItem() {
     priceExclVat = tagPrice;
   }
 
-  const attributedTo = Array.from(selectedPeopleIds);
-  if (attributedTo.length === 0) {
-    alert("Tick at least one person this item is for.");
-    return;
+  let attributedTo;
+  if (attributionMode === "everyone") {
+    attributedTo = activeTrip.people.map((p) => p.id);
+  } else {
+    attributedTo = Array.from(selectedPeopleIds);
+    if (attributedTo.length === 0) {
+      alert(attributionMode === "single" ? "Pick who this is for." : "Pick at least one person to split with.");
+      return;
+    }
   }
 
   const name = els.itemNameInput.value.trim();
