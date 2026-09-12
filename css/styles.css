@@ -167,15 +167,68 @@ button {
   padding: 0;
 }
 
-.chip-list.selectable li {
+.attribution-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.attribution-title {
+  margin: 0;
+}
+
+.attribution-title .hint {
+  font-size: 0.78rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--costco-blue);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.people-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.people-check-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   cursor: pointer;
   user-select: none;
 }
 
-.chip-list.selectable li.selected {
-  background: var(--costco-blue);
-  color: white;
+.people-check-row.checked {
+  background: rgba(0, 93, 170, 0.1);
   border-color: var(--costco-blue);
+}
+
+.people-check-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--costco-blue);
+  flex-shrink: 0;
+}
+
+.people-check-row .person-name {
+  font-size: 0.95rem;
+  flex: 1;
 }
 
 .primary-btn {
@@ -260,7 +313,13 @@ button {
 .add-item-bar {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
+}
+
+.capture-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 20px;
 }
 
 .capture-btn {
@@ -299,6 +358,11 @@ button {
   border-radius: var(--radius);
   padding: 10px;
   display: flex;
+  flex-direction: column;
+}
+
+.item-card-row {
+  display: flex;
   gap: 12px;
   align-items: center;
 }
@@ -335,6 +399,61 @@ button {
 .item-attribution {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.item-attribution-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--costco-blue);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  cursor: pointer;
+  text-align: left;
+}
+
+.quick-split-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-split-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 2px;
+}
+
+.quick-split-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.quick-split-row.checked {
+  background: rgba(0, 93, 170, 0.1);
+  border-color: var(--costco-blue);
+}
+
+.quick-split-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--costco-blue);
+  flex-shrink: 0;
+}
+
+.quick-split-row .person-name {
+  font-size: 0.88rem;
+  flex: 1;
 }
 
 .item-price {
@@ -393,8 +512,18 @@ button {
   max-height: 220px;
   object-fit: contain;
   border-radius: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
   background: var(--bg);
+}
+
+.ocr-status {
+  font-size: 0.82rem;
+  color: var(--costco-blue);
+  margin: 0 0 14px;
+}
+
+.ocr-status.ocr-error {
+  color: var(--text-muted);
 }
 
 .field-label {
@@ -445,29 +574,6 @@ button {
 .item-price-note {
   font-size: 0.72rem;
   color: var(--text-muted);
-}
-
-.attribution-mode-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 10px 6px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.mode-btn.active {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
 }
 
 #saveItemBtn {

@@ -2,9 +2,9 @@
 
 let activeTrip = null;
 let pendingPhotoDataUrl = null;
-let attributionMode = "everyone"; // 'everyone' | 'custom' | 'single'
 let selectedPeopleIds = new Set();
 let editingSetupPeople = [];
+let expandedItemId = null;
 
 const els = {};
 
@@ -55,6 +55,7 @@ function cacheEls() {
   els.itemModalTitle = document.getElementById("itemModalTitle");
   els.closeModalBtn = document.getElementById("closeModalBtn");
   els.itemPhotoPreview = document.getElementById("itemPhotoPreview");
+  els.ocrStatus = document.getElementById("ocrStatus");
   els.itemNameInput = document.getElementById("itemNameInput");
   els.itemPriceLabel = document.getElementById("itemPriceLabel");
   els.itemPriceInput = document.getElementById("itemPriceInput");
@@ -62,8 +63,8 @@ function cacheEls() {
   els.vatPriceRow = document.getElementById("vatPriceRow");
   els.itemVatPriceInput = document.getElementById("itemVatPriceInput");
   els.attributionPeopleList = document.getElementById("attributionPeopleList");
+  els.selectAllPeopleBtn = document.getElementById("selectAllPeopleBtn");
   els.saveItemBtn = document.getElementById("saveItemBtn");
-  els.modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
 
   els.summaryModal = document.getElementById("summaryModal");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
@@ -118,8 +119,9 @@ function bindEvents() {
   els.manualAddBtn.addEventListener("click", () => openItemModal(null));
   els.closeModalBtn.addEventListener("click", closeItemModal);
 
-  els.modeButtons.forEach((btn) => {
-    btn.addEventListener("click", () => setAttributionMode(btn.dataset.mode));
+  els.selectAllPeopleBtn.addEventListener("click", () => {
+    selectedPeopleIds = new Set(activeTrip.people.map((p) => p.id));
+    renderAttributionPeopleList();
   });
 
   els.vatToggle.addEventListener("change", () => {
@@ -167,6 +169,7 @@ function showShoppingScreen() {
     return;
   }
   hideAllScreens();
+  expandedItemId = null;
   els.shoppingScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
@@ -277,14 +280,16 @@ function renderItemList() {
       : "";
 
     li.innerHTML = `
-      ${thumbHtml}
-      <div class="item-info">
-        <div class="item-name">${escapeHtml(item.name || "Item")}</div>
-        <div class="item-attribution">${escapeHtml(attributionLabel)}</div>
-        ${vatNote}
+      <div class="item-card-row">
+        ${thumbHtml}
+        <div class="item-info">
+          <div class="item-name">${escapeHtml(item.name || "Item")}</div>
+          <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)} ✎</button>
+          ${vatNote}
+        </div>
+        <div class="item-price">${formatMoney(item.price)}</div>
+        <button class="item-delete" aria-label="Delete">🗑️</button>
       </div>
-      <div class="item-price">${formatMoney(item.price)}</div>
-      <button class="item-delete" aria-label="Delete">🗑️</button>
     `;
 
     li.querySelector(".item-delete").addEventListener("click", () => {
@@ -296,8 +301,65 @@ function renderItemList() {
       }
     });
 
+    li.querySelector(".item-attribution-btn").addEventListener("click", () => {
+      expandedItemId = expandedItemId === item.id ? null : item.id;
+      renderItemList();
+    });
+
+    if (expandedItemId === item.id) {
+      li.appendChild(buildQuickSplitPanel(item));
+    }
+
     els.itemList.appendChild(li);
   });
+}
+
+function buildQuickSplitPanel(item) {
+  const panel = document.createElement("div");
+  panel.className = "quick-split-panel";
+
+  const hint = document.createElement("p");
+  hint.className = "quick-split-hint";
+  hint.textContent = "Tick who this item is for — updates instantly.";
+  panel.appendChild(hint);
+
+  const currentTargets = new Set(
+    item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id)
+  );
+
+  activeTrip.people.forEach((person) => {
+    const row = document.createElement("label");
+    row.className = "quick-split-row";
+    const checked = currentTargets.has(person.id);
+    if (checked) row.classList.add("checked");
+
+    row.innerHTML = `
+      <input type="checkbox" ${checked ? "checked" : ""} />
+      <span class="person-name">${escapeHtml(person.name)}</span>
+    `;
+
+    row.querySelector("input").addEventListener("change", (e) => {
+      const next = new Set(currentTargets);
+      if (e.target.checked) {
+        next.add(person.id);
+      } else {
+        next.delete(person.id);
+      }
+      if (next.size === 0) {
+        alert("Keep at least one person ticked.");
+        e.target.checked = true;
+        return;
+      }
+      DB.updateItem(item.id, { attributedTo: Array.from(next) });
+      activeTrip = DB.getActiveTrip();
+      renderTotals();
+      renderItemList();
+    });
+
+    panel.appendChild(row);
+  });
+
+  return panel;
 }
 
 function describeAttribution(item) {
@@ -318,11 +380,67 @@ function describeAttribution(item) {
 function handlePhotoCapture(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
-  resizeImageToDataUrl(file, 500, (dataUrl) => {
-    pendingPhotoDataUrl = dataUrl;
-    openItemModal(dataUrl);
+  resizeImageToDataUrl(file, 500, (thumbDataUrl) => {
+    pendingPhotoDataUrl = thumbDataUrl;
+    openItemModal(thumbDataUrl);
     els.cameraInput.value = "";
   });
+  // A larger, higher-detail version (not stored) purely for reading the digits.
+  resizeImageToDataUrl(file, 1000, (ocrDataUrl) => {
+    runOcrOnPhoto(ocrDataUrl);
+  });
+}
+
+function runOcrOnPhoto(dataUrl) {
+  if (typeof Tesseract === "undefined") return;
+
+  els.ocrStatus.textContent = "🔎 Reading price from photo…";
+  els.ocrStatus.classList.remove("hidden", "ocr-error");
+
+  Tesseract.recognize(dataUrl, "eng")
+    .then(({ data }) => {
+      // The modal may have been closed, or the price already typed by hand, before this resolves.
+      if (els.itemModal.classList.contains("hidden")) return;
+
+      const prices = extractPricesFromText(data.text);
+
+      if (prices.length === 0) {
+        els.ocrStatus.textContent = "Couldn't read a price automatically — enter it below.";
+        els.ocrStatus.classList.add("ocr-error");
+        return;
+      }
+
+      if (els.itemPriceInput.value.trim() !== "") return; // user already typed something
+
+      if (prices.length === 1) {
+        els.itemPriceInput.value = prices[0].toFixed(2);
+        els.ocrStatus.textContent = `Filled in $${prices[0].toFixed(2)} from the photo — please double-check it.`;
+      } else {
+        // VAT tags show two numbers; the Inc. VAT amount is always the higher one.
+        const shown = Math.min(...prices);
+        const incVat = Math.max(...prices);
+        els.itemPriceInput.value = shown.toFixed(2);
+        els.itemVatPriceInput.value = incVat.toFixed(2);
+        if (!els.vatToggle.checked) {
+          els.vatToggle.checked = true;
+          els.vatToggle.dispatchEvent(new Event("change"));
+        }
+        els.ocrStatus.textContent = `Found two prices ($${shown.toFixed(2)} and $${incVat.toFixed(2)} Inc. VAT) — please double-check them.`;
+      }
+    })
+    .catch(() => {
+      if (els.itemModal.classList.contains("hidden")) return;
+      els.ocrStatus.textContent = "Couldn't read a price automatically — enter it below.";
+      els.ocrStatus.classList.add("ocr-error");
+    });
+}
+
+function extractPricesFromText(text) {
+  const matches = text.match(/\d{1,4}[.,]\d{2}/g) || [];
+  const values = matches
+    .map((m) => parseFloat(m.replace(",", ".")))
+    .filter((v) => !isNaN(v) && v > 0 && v < 1000);
+  return Array.from(new Set(values));
 }
 
 function resizeImageToDataUrl(file, maxDim, callback) {
@@ -362,6 +480,9 @@ function openItemModal(photoDataUrl) {
   els.vatPriceRow.classList.add("hidden");
   els.itemPriceLabel.textContent = "Price";
 
+  els.ocrStatus.textContent = "";
+  els.ocrStatus.classList.add("hidden");
+
   if (pendingPhotoDataUrl) {
     els.itemPhotoPreview.src = pendingPhotoDataUrl;
     els.itemPhotoPreview.classList.remove("hidden");
@@ -369,9 +490,8 @@ function openItemModal(photoDataUrl) {
     els.itemPhotoPreview.classList.add("hidden");
   }
 
-  attributionMode = "everyone";
-  selectedPeopleIds = new Set();
-  updateModeButtons();
+  // Default: everyone ticked (split evenly across the whole group).
+  selectedPeopleIds = new Set(activeTrip.people.map((p) => p.id));
   renderAttributionPeopleList();
 
   els.itemModal.classList.remove("hidden");
@@ -383,45 +503,29 @@ function closeItemModal() {
   pendingPhotoDataUrl = null;
 }
 
-function setAttributionMode(mode) {
-  attributionMode = mode;
-  selectedPeopleIds = new Set();
-  updateModeButtons();
-  renderAttributionPeopleList();
-}
-
-function updateModeButtons() {
-  els.modeButtons.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.mode === attributionMode);
-  });
-}
-
 function renderAttributionPeopleList() {
   els.attributionPeopleList.innerHTML = "";
 
-  if (attributionMode === "everyone") {
-    els.attributionPeopleList.classList.add("hidden");
-    return;
-  }
-  els.attributionPeopleList.classList.remove("hidden");
-
   activeTrip.people.forEach((person) => {
     const li = document.createElement("li");
-    li.textContent = person.name;
-    li.dataset.personId = person.id;
-    if (selectedPeopleIds.has(person.id)) li.classList.add("selected");
+    li.className = "people-check-row";
+    const checked = selectedPeopleIds.has(person.id);
+    if (checked) li.classList.add("checked");
 
-    li.addEventListener("click", () => {
-      if (attributionMode === "single") {
-        selectedPeopleIds = new Set([person.id]);
+    const checkboxId = `personCheck_${person.id}`;
+    li.innerHTML = `
+      <input type="checkbox" id="${checkboxId}" ${checked ? "checked" : ""} />
+      <label class="person-name" for="${checkboxId}">${escapeHtml(person.name)}</label>
+    `;
+
+    const checkbox = li.querySelector("input");
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        selectedPeopleIds.add(person.id);
       } else {
-        if (selectedPeopleIds.has(person.id)) {
-          selectedPeopleIds.delete(person.id);
-        } else {
-          selectedPeopleIds.add(person.id);
-        }
+        selectedPeopleIds.delete(person.id);
       }
-      renderAttributionPeopleList();
+      li.classList.toggle("checked", checkbox.checked);
     });
 
     els.attributionPeopleList.appendChild(li);
@@ -451,15 +555,10 @@ function saveItem() {
     priceExclVat = tagPrice;
   }
 
-  let attributedTo;
-  if (attributionMode === "everyone") {
-    attributedTo = activeTrip.people.map((p) => p.id);
-  } else {
-    attributedTo = Array.from(selectedPeopleIds);
-    if (attributedTo.length === 0) {
-      alert(attributionMode === "single" ? "Pick who this is for." : "Pick at least one person to split with.");
-      return;
-    }
+  const attributedTo = Array.from(selectedPeopleIds);
+  if (attributedTo.length === 0) {
+    alert("Tick at least one person this item is for.");
+    return;
   }
 
   const name = els.itemNameInput.value.trim();
