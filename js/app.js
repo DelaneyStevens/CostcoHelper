@@ -4,6 +4,7 @@ let activeTrip = null;
 let pendingPhotoDataUrl = null;
 let selectedPeopleIds = new Set();
 let editingSetupPeople = [];
+let expandedItemId = null;
 
 const els = {};
 
@@ -168,6 +169,7 @@ function showShoppingScreen() {
     return;
   }
   hideAllScreens();
+  expandedItemId = null;
   els.shoppingScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
@@ -278,14 +280,16 @@ function renderItemList() {
       : "";
 
     li.innerHTML = `
-      ${thumbHtml}
-      <div class="item-info">
-        <div class="item-name">${escapeHtml(item.name || "Item")}</div>
-        <div class="item-attribution">${escapeHtml(attributionLabel)}</div>
-        ${vatNote}
+      <div class="item-card-row">
+        ${thumbHtml}
+        <div class="item-info">
+          <div class="item-name">${escapeHtml(item.name || "Item")}</div>
+          <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)} ✎</button>
+          ${vatNote}
+        </div>
+        <div class="item-price">${formatMoney(item.price)}</div>
+        <button class="item-delete" aria-label="Delete">🗑️</button>
       </div>
-      <div class="item-price">${formatMoney(item.price)}</div>
-      <button class="item-delete" aria-label="Delete">🗑️</button>
     `;
 
     li.querySelector(".item-delete").addEventListener("click", () => {
@@ -297,8 +301,65 @@ function renderItemList() {
       }
     });
 
+    li.querySelector(".item-attribution-btn").addEventListener("click", () => {
+      expandedItemId = expandedItemId === item.id ? null : item.id;
+      renderItemList();
+    });
+
+    if (expandedItemId === item.id) {
+      li.appendChild(buildQuickSplitPanel(item));
+    }
+
     els.itemList.appendChild(li);
   });
+}
+
+function buildQuickSplitPanel(item) {
+  const panel = document.createElement("div");
+  panel.className = "quick-split-panel";
+
+  const hint = document.createElement("p");
+  hint.className = "quick-split-hint";
+  hint.textContent = "Tick who this item is for — updates instantly.";
+  panel.appendChild(hint);
+
+  const currentTargets = new Set(
+    item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id)
+  );
+
+  activeTrip.people.forEach((person) => {
+    const row = document.createElement("label");
+    row.className = "quick-split-row";
+    const checked = currentTargets.has(person.id);
+    if (checked) row.classList.add("checked");
+
+    row.innerHTML = `
+      <input type="checkbox" ${checked ? "checked" : ""} />
+      <span class="person-name">${escapeHtml(person.name)}</span>
+    `;
+
+    row.querySelector("input").addEventListener("change", (e) => {
+      const next = new Set(currentTargets);
+      if (e.target.checked) {
+        next.add(person.id);
+      } else {
+        next.delete(person.id);
+      }
+      if (next.size === 0) {
+        alert("Keep at least one person ticked.");
+        e.target.checked = true;
+        return;
+      }
+      DB.updateItem(item.id, { attributedTo: Array.from(next) });
+      activeTrip = DB.getActiveTrip();
+      renderTotals();
+      renderItemList();
+    });
+
+    panel.appendChild(row);
+  });
+
+  return panel;
 }
 
 function describeAttribution(item) {

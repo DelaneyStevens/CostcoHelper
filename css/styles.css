@@ -358,6 +358,11 @@ button {
   border-radius: var(--radius);
   padding: 10px;
   display: flex;
+  flex-direction: column;
+}
+
+.item-card-row {
+  display: flex;
   gap: 12px;
   align-items: center;
 }
@@ -394,6 +399,61 @@ button {
 .item-attribution {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.item-attribution-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--costco-blue);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  cursor: pointer;
+  text-align: left;
+}
+
+.quick-split-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-split-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 2px;
+}
+
+.quick-split-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.quick-split-row.checked {
+  background: rgba(0, 93, 170, 0.1);
+  border-color: var(--costco-blue);
+}
+
+.quick-split-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--costco-blue);
+  flex-shrink: 0;
+}
+
+.quick-split-row .person-name {
+  font-size: 0.88rem;
+  flex: 1;
 }
 
 .item-price {

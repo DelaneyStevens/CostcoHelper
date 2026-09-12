@@ -47,6 +47,16 @@ const DB = (() => {
     return trip;
   }
 
+  function updateItem(itemId, patch) {
+    const trip = getActiveTrip();
+    if (!trip) return null;
+    const item = trip.items.find((i) => i.id === itemId);
+    if (!item) return trip;
+    Object.assign(item, patch);
+    saveActiveTrip(trip);
+    return trip;
+  }
+
   function deleteItem(itemId) {
     const trip = getActiveTrip();
     if (!trip) return null;
@@ -78,6 +88,7 @@ const DB = (() => {
     createTrip,
     addPersonToActiveTrip,
     addItem,
+    updateItem,
     deleteItem,
     getHistory,
     endActiveTrip,
