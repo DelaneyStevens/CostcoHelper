@@ -5,6 +5,11 @@ let pendingPhotoDataUrl = null;
 let selectedPeopleIds = new Set();
 let editingSetupPeople = [];
 let expandedItemId = null;
+let vatPriceAuto = true;
+let editingItemId = null;
+let filterPersonId = null;
+
+const VAT_RATE = 0.2;
 
 const els = {};
 
@@ -43,8 +48,10 @@ function cacheEls() {
   els.cameraInput = document.getElementById("cameraInput");
   els.manualAddBtn = document.getElementById("manualAddBtn");
   els.itemList = document.getElementById("itemList");
+  els.itemListTitle = document.getElementById("itemListTitle");
   els.itemCount = document.getElementById("itemCount");
   els.emptyState = document.getElementById("emptyState");
+  els.clearFilterBtn = document.getElementById("clearFilterBtn");
 
   els.historyScreen = document.getElementById("historyScreen");
   els.backFromHistory = document.getElementById("backFromHistory");
@@ -117,6 +124,12 @@ function bindEvents() {
   // Shopping screen
   els.cameraInput.addEventListener("change", handlePhotoCapture);
   els.manualAddBtn.addEventListener("click", () => openItemModal(null));
+
+  els.clearFilterBtn.addEventListener("click", () => {
+    filterPersonId = null;
+    renderTotals();
+    renderItemList();
+  });
   els.closeModalBtn.addEventListener("click", closeItemModal);
 
   els.selectAllPeopleBtn.addEventListener("click", () => {
@@ -128,8 +141,17 @@ function bindEvents() {
     els.vatPriceRow.classList.toggle("hidden", !els.vatToggle.checked);
     els.itemPriceLabel.textContent = els.vatToggle.checked ? "Price shown on tag (excl. VAT)" : "Price";
     if (els.vatToggle.checked) {
+      if (vatPriceAuto) recomputeVatPrice();
       setTimeout(() => els.itemVatPriceInput.focus(), 50);
     }
+  });
+
+  els.itemPriceInput.addEventListener("input", () => {
+    if (els.vatToggle.checked && vatPriceAuto) recomputeVatPrice();
+  });
+
+  els.itemVatPriceInput.addEventListener("input", () => {
+    vatPriceAuto = false;
   });
 
   els.saveItemBtn.addEventListener("click", saveItem);
@@ -170,6 +192,7 @@ function showShoppingScreen() {
   }
   hideAllScreens();
   expandedItemId = null;
+  filterPersonId = null;
   els.shoppingScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
@@ -245,25 +268,53 @@ function renderTotals() {
   const { totals, grandTotal } = computeTotals(activeTrip);
   els.totalsBar.innerHTML = "";
 
-  const grandCard = document.createElement("div");
+  const grandCard = document.createElement("button");
+  grandCard.type = "button";
   grandCard.className = "total-card grand";
+  if (filterPersonId === null) grandCard.classList.add("selected");
   grandCard.innerHTML = `<div class="name">Trip Total</div><div class="amount">${formatMoney(grandTotal)}</div>`;
+  grandCard.addEventListener("click", () => {
+    filterPersonId = null;
+    renderTotals();
+    renderItemList();
+  });
   els.totalsBar.appendChild(grandCard);
 
   activeTrip.people.forEach((person) => {
-    const card = document.createElement("div");
+    const card = document.createElement("button");
+    card.type = "button";
     card.className = "total-card";
+    if (filterPersonId === person.id) card.classList.add("selected");
     card.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="amount">${formatMoney(totals[person.id] || 0)}</div>`;
+    card.addEventListener("click", () => {
+      filterPersonId = filterPersonId === person.id ? null : person.id;
+      renderTotals();
+      renderItemList();
+    });
     els.totalsBar.appendChild(card);
   });
 }
 
+function itemTargets(item) {
+  return item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id);
+}
+
 function renderItemList() {
   els.itemList.innerHTML = "";
-  els.itemCount.textContent = activeTrip.items.length;
-  els.emptyState.classList.toggle("hidden", activeTrip.items.length > 0);
 
-  activeTrip.items.forEach((item) => {
+  const filterPerson = filterPersonId ? activeTrip.people.find((p) => p.id === filterPersonId) : null;
+  const items = filterPerson ? activeTrip.items.filter((item) => itemTargets(item).includes(filterPerson.id)) : activeTrip.items;
+
+  els.itemListTitle.textContent = filterPerson ? `${filterPerson.name}'s Items` : "Items";
+  els.itemCount.textContent = items.length;
+  els.clearFilterBtn.classList.toggle("hidden", !filterPerson);
+
+  els.emptyState.classList.toggle("hidden", items.length > 0);
+  els.emptyState.textContent = filterPerson
+    ? `No items for ${filterPerson.name} yet.`
+    : "No items yet. Snap a photo of a price tag to log your first item.";
+
+  items.forEach((item) => {
     const li = document.createElement("li");
     li.className = "item-card";
 
@@ -284,13 +335,18 @@ function renderItemList() {
         ${thumbHtml}
         <div class="item-info">
           <div class="item-name">${escapeHtml(item.name || "Item")}</div>
-          <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)} ✎</button>
+          <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)}</button>
           ${vatNote}
         </div>
         <div class="item-price">${formatMoney(item.price)}</div>
+        <button class="item-edit" aria-label="Edit">✏️</button>
         <button class="item-delete" aria-label="Delete">🗑️</button>
       </div>
     `;
+
+    li.querySelector(".item-edit").addEventListener("click", () => {
+      openItemModal(null, item);
+    });
 
     li.querySelector(".item-delete").addEventListener("click", () => {
       if (confirm("Delete this item?")) {
@@ -363,7 +419,7 @@ function buildQuickSplitPanel(item) {
 }
 
 function describeAttribution(item) {
-  const targets = item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id);
+  const targets = itemTargets(item);
   if (targets.length === activeTrip.people.length) {
     return "Split: everyone";
   }
@@ -389,6 +445,15 @@ function handlePhotoCapture(e) {
   resizeImageToDataUrl(file, 1000, (ocrDataUrl) => {
     runOcrOnPhoto(ocrDataUrl);
   });
+}
+
+function recomputeVatPrice() {
+  const base = parseFloat(els.itemPriceInput.value);
+  if (isNaN(base) || base < 0) {
+    els.itemVatPriceInput.value = "";
+    return;
+  }
+  els.itemVatPriceInput.value = (Math.round(base * (1 + VAT_RATE) * 100) / 100).toFixed(2);
 }
 
 function runOcrOnPhoto(dataUrl) {
@@ -421,6 +486,7 @@ function runOcrOnPhoto(dataUrl) {
         const incVat = Math.max(...prices);
         els.itemPriceInput.value = shown.toFixed(2);
         els.itemVatPriceInput.value = incVat.toFixed(2);
+        vatPriceAuto = false; // we read the real Inc. VAT number, don't let auto-calc overwrite it
         if (!els.vatToggle.checked) {
           els.vatToggle.checked = true;
           els.vatToggle.dispatchEvent(new Event("change"));
@@ -470,15 +536,21 @@ function resizeImageToDataUrl(file, maxDim, callback) {
 
 // ---------- Item modal ----------
 
-function openItemModal(photoDataUrl) {
-  pendingPhotoDataUrl = photoDataUrl || null;
-  els.itemModalTitle.textContent = "Add Item";
-  els.itemNameInput.value = "";
-  els.itemPriceInput.value = "";
-  els.itemVatPriceInput.value = "";
-  els.vatToggle.checked = false;
-  els.vatPriceRow.classList.add("hidden");
-  els.itemPriceLabel.textContent = "Price";
+function openItemModal(photoDataUrl, existingItem) {
+  editingItemId = existingItem ? existingItem.id : null;
+  pendingPhotoDataUrl = existingItem ? existingItem.photo || null : photoDataUrl || null;
+
+  els.itemModalTitle.textContent = existingItem ? "Edit Item" : "Add Item";
+  els.itemNameInput.value = existingItem ? existingItem.name || "" : "";
+
+  const vatIncluded = !!(existingItem && existingItem.vatIncluded);
+  els.itemPriceInput.value = existingItem ? (vatIncluded ? existingItem.priceExclVat : existingItem.price).toFixed(2) : "";
+  els.itemVatPriceInput.value = existingItem && vatIncluded ? existingItem.price.toFixed(2) : "";
+  els.vatToggle.checked = vatIncluded;
+  els.vatPriceRow.classList.toggle("hidden", !vatIncluded);
+  els.itemPriceLabel.textContent = vatIncluded ? "Price shown on tag (excl. VAT)" : "Price";
+  // Auto-recalc VAT going forward only if this item didn't already have a specific real Inc. VAT number to protect.
+  vatPriceAuto = !vatIncluded;
 
   els.ocrStatus.textContent = "";
   els.ocrStatus.classList.add("hidden");
@@ -490,9 +562,14 @@ function openItemModal(photoDataUrl) {
     els.itemPhotoPreview.classList.add("hidden");
   }
 
-  // Default: everyone ticked (split evenly across the whole group).
-  selectedPeopleIds = new Set(activeTrip.people.map((p) => p.id));
+  const defaultTargets =
+    existingItem && existingItem.attributedTo && existingItem.attributedTo.length > 0
+      ? existingItem.attributedTo
+      : activeTrip.people.map((p) => p.id);
+  selectedPeopleIds = new Set(defaultTargets);
   renderAttributionPeopleList();
+
+  els.saveItemBtn.textContent = existingItem ? "Save Changes" : "Save Item";
 
   els.itemModal.classList.remove("hidden");
   setTimeout(() => els.itemPriceInput.focus(), 50);
@@ -501,6 +578,7 @@ function openItemModal(photoDataUrl) {
 function closeItemModal() {
   els.itemModal.classList.add("hidden");
   pendingPhotoDataUrl = null;
+  editingItemId = null;
 }
 
 function renderAttributionPeopleList() {
@@ -563,14 +641,20 @@ function saveItem() {
 
   const name = els.itemNameInput.value.trim();
 
-  DB.addItem({
+  const fields = {
     name,
     price,
     vatIncluded,
     priceExclVat,
     photo: pendingPhotoDataUrl,
     attributedTo,
-  });
+  };
+
+  if (editingItemId) {
+    DB.updateItem(editingItemId, fields);
+  } else {
+    DB.addItem(fields);
+  }
 
   activeTrip = DB.getActiveTrip();
   closeItemModal();

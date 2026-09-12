@@ -1,4 +1,4 @@
-const CACHE_NAME = "costco-helper-v1";
+const CACHE_NAME = "costco-helper-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,16 +27,34 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
+
+  const isSameOrigin = new URL(event.request.url).origin === self.location.origin;
+
+  if (isSameOrigin) {
+    // Network-first for our own app files, so a new deploy shows up immediately
+    // whenever there's a connection; only fall back to the cache when offline.
+    event.respondWith(
+      fetch(event.request)
         .then((response) => {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return response;
         })
-        .catch(() => cached);
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for third-party resources (e.g. the OCR library from a CDN) —
+  // these are pinned by version and don't need to be re-fetched every time.
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      });
     })
   );
 });

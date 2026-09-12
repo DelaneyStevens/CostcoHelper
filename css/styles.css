@@ -288,12 +288,20 @@ button {
   min-width: 110px;
   flex-shrink: 0;
   text-align: center;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .total-card.grand {
   background: var(--costco-blue);
   color: white;
   border-color: var(--costco-blue);
+}
+
+.total-card.selected {
+  outline: 3px solid var(--costco-red);
+  outline-offset: -3px;
 }
 
 .total-card .name {
@@ -340,6 +348,14 @@ button {
 .section-label {
   font-size: 0.95rem;
   color: var(--text-muted);
+  margin: 0;
+}
+
+.section-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
@@ -462,7 +478,8 @@ button {
   white-space: nowrap;
 }
 
-.item-delete {
+.item-delete,
+.item-edit {
   background: none;
   border: none;
   color: var(--text-muted);
