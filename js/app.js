@@ -7,6 +7,7 @@ let editingSetupPeople = [];
 let expandedItemId = null;
 let vatPriceAuto = true;
 let editingItemId = null;
+let filterPersonId = null;
 
 const VAT_RATE = 0.2;
 
@@ -47,8 +48,10 @@ function cacheEls() {
   els.cameraInput = document.getElementById("cameraInput");
   els.manualAddBtn = document.getElementById("manualAddBtn");
   els.itemList = document.getElementById("itemList");
+  els.itemListTitle = document.getElementById("itemListTitle");
   els.itemCount = document.getElementById("itemCount");
   els.emptyState = document.getElementById("emptyState");
+  els.clearFilterBtn = document.getElementById("clearFilterBtn");
 
   els.historyScreen = document.getElementById("historyScreen");
   els.backFromHistory = document.getElementById("backFromHistory");
@@ -121,6 +124,12 @@ function bindEvents() {
   // Shopping screen
   els.cameraInput.addEventListener("change", handlePhotoCapture);
   els.manualAddBtn.addEventListener("click", () => openItemModal(null));
+
+  els.clearFilterBtn.addEventListener("click", () => {
+    filterPersonId = null;
+    renderTotals();
+    renderItemList();
+  });
   els.closeModalBtn.addEventListener("click", closeItemModal);
 
   els.selectAllPeopleBtn.addEventListener("click", () => {
@@ -183,6 +192,7 @@ function showShoppingScreen() {
   }
   hideAllScreens();
   expandedItemId = null;
+  filterPersonId = null;
   els.shoppingScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
@@ -258,25 +268,53 @@ function renderTotals() {
   const { totals, grandTotal } = computeTotals(activeTrip);
   els.totalsBar.innerHTML = "";
 
-  const grandCard = document.createElement("div");
+  const grandCard = document.createElement("button");
+  grandCard.type = "button";
   grandCard.className = "total-card grand";
+  if (filterPersonId === null) grandCard.classList.add("selected");
   grandCard.innerHTML = `<div class="name">Trip Total</div><div class="amount">${formatMoney(grandTotal)}</div>`;
+  grandCard.addEventListener("click", () => {
+    filterPersonId = null;
+    renderTotals();
+    renderItemList();
+  });
   els.totalsBar.appendChild(grandCard);
 
   activeTrip.people.forEach((person) => {
-    const card = document.createElement("div");
+    const card = document.createElement("button");
+    card.type = "button";
     card.className = "total-card";
+    if (filterPersonId === person.id) card.classList.add("selected");
     card.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="amount">${formatMoney(totals[person.id] || 0)}</div>`;
+    card.addEventListener("click", () => {
+      filterPersonId = filterPersonId === person.id ? null : person.id;
+      renderTotals();
+      renderItemList();
+    });
     els.totalsBar.appendChild(card);
   });
 }
 
+function itemTargets(item) {
+  return item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id);
+}
+
 function renderItemList() {
   els.itemList.innerHTML = "";
-  els.itemCount.textContent = activeTrip.items.length;
-  els.emptyState.classList.toggle("hidden", activeTrip.items.length > 0);
 
-  activeTrip.items.forEach((item) => {
+  const filterPerson = filterPersonId ? activeTrip.people.find((p) => p.id === filterPersonId) : null;
+  const items = filterPerson ? activeTrip.items.filter((item) => itemTargets(item).includes(filterPerson.id)) : activeTrip.items;
+
+  els.itemListTitle.textContent = filterPerson ? `${filterPerson.name}'s Items` : "Items";
+  els.itemCount.textContent = items.length;
+  els.clearFilterBtn.classList.toggle("hidden", !filterPerson);
+
+  els.emptyState.classList.toggle("hidden", items.length > 0);
+  els.emptyState.textContent = filterPerson
+    ? `No items for ${filterPerson.name} yet.`
+    : "No items yet. Snap a photo of a price tag to log your first item.";
+
+  items.forEach((item) => {
     const li = document.createElement("li");
     li.className = "item-card";
 
@@ -381,7 +419,7 @@ function buildQuickSplitPanel(item) {
 }
 
 function describeAttribution(item) {
-  const targets = item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id);
+  const targets = itemTargets(item);
   if (targets.length === activeTrip.people.length) {
     return "Split: everyone";
   }
