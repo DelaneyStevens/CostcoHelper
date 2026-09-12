@@ -462,7 +462,8 @@ button {
   white-space: nowrap;
 }
 
-.item-delete {
+.item-delete,
+.item-edit {
   background: none;
   border: none;
   color: var(--text-muted);

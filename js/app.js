@@ -6,6 +6,7 @@ let selectedPeopleIds = new Set();
 let editingSetupPeople = [];
 let expandedItemId = null;
 let vatPriceAuto = true;
+let editingItemId = null;
 
 const VAT_RATE = 0.2;
 
@@ -296,13 +297,18 @@ function renderItemList() {
         ${thumbHtml}
         <div class="item-info">
           <div class="item-name">${escapeHtml(item.name || "Item")}</div>
-          <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)} ✎</button>
+          <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)}</button>
           ${vatNote}
         </div>
         <div class="item-price">${formatMoney(item.price)}</div>
+        <button class="item-edit" aria-label="Edit">✏️</button>
         <button class="item-delete" aria-label="Delete">🗑️</button>
       </div>
     `;
+
+    li.querySelector(".item-edit").addEventListener("click", () => {
+      openItemModal(null, item);
+    });
 
     li.querySelector(".item-delete").addEventListener("click", () => {
       if (confirm("Delete this item?")) {
@@ -492,16 +498,21 @@ function resizeImageToDataUrl(file, maxDim, callback) {
 
 // ---------- Item modal ----------
 
-function openItemModal(photoDataUrl) {
-  pendingPhotoDataUrl = photoDataUrl || null;
-  els.itemModalTitle.textContent = "Add Item";
-  els.itemNameInput.value = "";
-  els.itemPriceInput.value = "";
-  els.itemVatPriceInput.value = "";
-  els.vatToggle.checked = false;
-  els.vatPriceRow.classList.add("hidden");
-  els.itemPriceLabel.textContent = "Price";
-  vatPriceAuto = true;
+function openItemModal(photoDataUrl, existingItem) {
+  editingItemId = existingItem ? existingItem.id : null;
+  pendingPhotoDataUrl = existingItem ? existingItem.photo || null : photoDataUrl || null;
+
+  els.itemModalTitle.textContent = existingItem ? "Edit Item" : "Add Item";
+  els.itemNameInput.value = existingItem ? existingItem.name || "" : "";
+
+  const vatIncluded = !!(existingItem && existingItem.vatIncluded);
+  els.itemPriceInput.value = existingItem ? (vatIncluded ? existingItem.priceExclVat : existingItem.price).toFixed(2) : "";
+  els.itemVatPriceInput.value = existingItem && vatIncluded ? existingItem.price.toFixed(2) : "";
+  els.vatToggle.checked = vatIncluded;
+  els.vatPriceRow.classList.toggle("hidden", !vatIncluded);
+  els.itemPriceLabel.textContent = vatIncluded ? "Price shown on tag (excl. VAT)" : "Price";
+  // Auto-recalc VAT going forward only if this item didn't already have a specific real Inc. VAT number to protect.
+  vatPriceAuto = !vatIncluded;
 
   els.ocrStatus.textContent = "";
   els.ocrStatus.classList.add("hidden");
@@ -513,9 +524,14 @@ function openItemModal(photoDataUrl) {
     els.itemPhotoPreview.classList.add("hidden");
   }
 
-  // Default: everyone ticked (split evenly across the whole group).
-  selectedPeopleIds = new Set(activeTrip.people.map((p) => p.id));
+  const defaultTargets =
+    existingItem && existingItem.attributedTo && existingItem.attributedTo.length > 0
+      ? existingItem.attributedTo
+      : activeTrip.people.map((p) => p.id);
+  selectedPeopleIds = new Set(defaultTargets);
   renderAttributionPeopleList();
+
+  els.saveItemBtn.textContent = existingItem ? "Save Changes" : "Save Item";
 
   els.itemModal.classList.remove("hidden");
   setTimeout(() => els.itemPriceInput.focus(), 50);
@@ -524,6 +540,7 @@ function openItemModal(photoDataUrl) {
 function closeItemModal() {
   els.itemModal.classList.add("hidden");
   pendingPhotoDataUrl = null;
+  editingItemId = null;
 }
 
 function renderAttributionPeopleList() {
@@ -586,14 +603,20 @@ function saveItem() {
 
   const name = els.itemNameInput.value.trim();
 
-  DB.addItem({
+  const fields = {
     name,
     price,
     vatIncluded,
     priceExclVat,
     photo: pendingPhotoDataUrl,
     attributedTo,
-  });
+  };
+
+  if (editingItemId) {
+    DB.updateItem(editingItemId, fields);
+  } else {
+    DB.addItem(fields);
+  }
 
   activeTrip = DB.getActiveTrip();
   closeItemModal();
