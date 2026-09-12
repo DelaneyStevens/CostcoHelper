@@ -2,7 +2,6 @@
 
 let activeTrip = null;
 let pendingPhotoDataUrl = null;
-let attributionMode = "everyone"; // 'everyone' | 'custom' | 'single'
 let selectedPeopleIds = new Set();
 let editingSetupPeople = [];
 
@@ -62,8 +61,8 @@ function cacheEls() {
   els.vatPriceRow = document.getElementById("vatPriceRow");
   els.itemVatPriceInput = document.getElementById("itemVatPriceInput");
   els.attributionPeopleList = document.getElementById("attributionPeopleList");
+  els.selectAllPeopleBtn = document.getElementById("selectAllPeopleBtn");
   els.saveItemBtn = document.getElementById("saveItemBtn");
-  els.modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
 
   els.summaryModal = document.getElementById("summaryModal");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
@@ -118,8 +117,9 @@ function bindEvents() {
   els.manualAddBtn.addEventListener("click", () => openItemModal(null));
   els.closeModalBtn.addEventListener("click", closeItemModal);
 
-  els.modeButtons.forEach((btn) => {
-    btn.addEventListener("click", () => setAttributionMode(btn.dataset.mode));
+  els.selectAllPeopleBtn.addEventListener("click", () => {
+    selectedPeopleIds = new Set(activeTrip.people.map((p) => p.id));
+    renderAttributionPeopleList();
   });
 
   els.vatToggle.addEventListener("change", () => {
@@ -369,9 +369,8 @@ function openItemModal(photoDataUrl) {
     els.itemPhotoPreview.classList.add("hidden");
   }
 
-  attributionMode = "everyone";
-  selectedPeopleIds = new Set();
-  updateModeButtons();
+  // Default: everyone ticked (split evenly across the whole group).
+  selectedPeopleIds = new Set(activeTrip.people.map((p) => p.id));
   renderAttributionPeopleList();
 
   els.itemModal.classList.remove("hidden");
@@ -383,45 +382,29 @@ function closeItemModal() {
   pendingPhotoDataUrl = null;
 }
 
-function setAttributionMode(mode) {
-  attributionMode = mode;
-  selectedPeopleIds = new Set();
-  updateModeButtons();
-  renderAttributionPeopleList();
-}
-
-function updateModeButtons() {
-  els.modeButtons.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.mode === attributionMode);
-  });
-}
-
 function renderAttributionPeopleList() {
   els.attributionPeopleList.innerHTML = "";
 
-  if (attributionMode === "everyone") {
-    els.attributionPeopleList.classList.add("hidden");
-    return;
-  }
-  els.attributionPeopleList.classList.remove("hidden");
-
   activeTrip.people.forEach((person) => {
     const li = document.createElement("li");
-    li.textContent = person.name;
-    li.dataset.personId = person.id;
-    if (selectedPeopleIds.has(person.id)) li.classList.add("selected");
+    li.className = "people-check-row";
+    const checked = selectedPeopleIds.has(person.id);
+    if (checked) li.classList.add("checked");
 
-    li.addEventListener("click", () => {
-      if (attributionMode === "single") {
-        selectedPeopleIds = new Set([person.id]);
+    const checkboxId = `personCheck_${person.id}`;
+    li.innerHTML = `
+      <input type="checkbox" id="${checkboxId}" ${checked ? "checked" : ""} />
+      <label class="person-name" for="${checkboxId}">${escapeHtml(person.name)}</label>
+    `;
+
+    const checkbox = li.querySelector("input");
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        selectedPeopleIds.add(person.id);
       } else {
-        if (selectedPeopleIds.has(person.id)) {
-          selectedPeopleIds.delete(person.id);
-        } else {
-          selectedPeopleIds.add(person.id);
-        }
+        selectedPeopleIds.delete(person.id);
       }
-      renderAttributionPeopleList();
+      li.classList.toggle("checked", checkbox.checked);
     });
 
     els.attributionPeopleList.appendChild(li);
@@ -451,15 +434,10 @@ function saveItem() {
     priceExclVat = tagPrice;
   }
 
-  let attributedTo;
-  if (attributionMode === "everyone") {
-    attributedTo = activeTrip.people.map((p) => p.id);
-  } else {
-    attributedTo = Array.from(selectedPeopleIds);
-    if (attributedTo.length === 0) {
-      alert(attributionMode === "single" ? "Pick who this is for." : "Pick at least one person to split with.");
-      return;
-    }
+  const attributedTo = Array.from(selectedPeopleIds);
+  if (attributedTo.length === 0) {
+    alert("Tick at least one person this item is for.");
+    return;
   }
 
   const name = els.itemNameInput.value.trim();

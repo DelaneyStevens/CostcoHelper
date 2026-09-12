@@ -167,15 +167,68 @@ button {
   padding: 0;
 }
 
-.chip-list.selectable li {
+.attribution-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.attribution-title {
+  margin: 0;
+}
+
+.attribution-title .hint {
+  font-size: 0.78rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--costco-blue);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.people-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.people-check-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   cursor: pointer;
   user-select: none;
 }
 
-.chip-list.selectable li.selected {
-  background: var(--costco-blue);
-  color: white;
+.people-check-row.checked {
+  background: rgba(0, 93, 170, 0.1);
   border-color: var(--costco-blue);
+}
+
+.people-check-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--costco-blue);
+  flex-shrink: 0;
+}
+
+.people-check-row .person-name {
+  font-size: 0.95rem;
+  flex: 1;
 }
 
 .primary-btn {
@@ -445,29 +498,6 @@ button {
 .item-price-note {
   font-size: 0.72rem;
   color: var(--text-muted);
-}
-
-.attribution-mode-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 10px 6px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.mode-btn.active {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
 }
 
 #saveItemBtn {

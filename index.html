@@ -102,13 +102,11 @@
       </div>
     </div>
 
-    <label class="field-label">Who's this for?</label>
-    <div class="attribution-mode-row">
-      <button class="mode-btn active" data-mode="everyone">Split: Everyone</button>
-      <button class="mode-btn" data-mode="custom">Split: Choose</button>
-      <button class="mode-btn" data-mode="single">One person</button>
+    <div class="attribution-header">
+      <label class="field-label attribution-title">Who's this for? <span class="hint">(tick everyone it applies to)</span></label>
+      <button id="selectAllPeopleBtn" type="button" class="link-btn">Select all</button>
     </div>
-    <ul id="attributionPeopleList" class="chip-list selectable"></ul>
+    <ul id="attributionPeopleList" class="people-check-list"></ul>
 
     <button id="saveItemBtn" class="primary-btn">Save Item</button>
   </div>
