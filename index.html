@@ -83,10 +83,23 @@
     <label class="field-label" for="itemNameInput">What is it? (optional)</label>
     <input id="itemNameInput" type="text" placeholder="e.g. Rotisserie Chicken" maxlength="60" />
 
-    <label class="field-label" for="itemPriceInput">Price</label>
+    <label class="field-label" id="itemPriceLabel" for="itemPriceInput">Price</label>
     <div class="price-input-row">
       <span class="currency">$</span>
       <input id="itemPriceInput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autofocus />
+    </div>
+
+    <label class="vat-toggle-row" for="vatToggle">
+      <input type="checkbox" id="vatToggle" />
+      <span>Tag shows a smaller "Inc. VAT" price underneath</span>
+    </label>
+
+    <div id="vatPriceRow" class="hidden">
+      <label class="field-label" for="itemVatPriceInput">Price you'll pay (Inc. VAT, the smaller number)</label>
+      <div class="price-input-row">
+        <span class="currency">$</span>
+        <input id="itemVatPriceInput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" />
+      </div>
     </div>
 
     <label class="field-label">Who's this for?</label>

@@ -427,6 +427,26 @@ button {
   font-weight: 600;
 }
 
+.vat-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.vat-toggle-row input {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.item-price-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .attribution-mode-row {
   display: flex;
   gap: 6px;

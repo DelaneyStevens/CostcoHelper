@@ -56,7 +56,11 @@ function cacheEls() {
   els.closeModalBtn = document.getElementById("closeModalBtn");
   els.itemPhotoPreview = document.getElementById("itemPhotoPreview");
   els.itemNameInput = document.getElementById("itemNameInput");
+  els.itemPriceLabel = document.getElementById("itemPriceLabel");
   els.itemPriceInput = document.getElementById("itemPriceInput");
+  els.vatToggle = document.getElementById("vatToggle");
+  els.vatPriceRow = document.getElementById("vatPriceRow");
+  els.itemVatPriceInput = document.getElementById("itemVatPriceInput");
   els.attributionPeopleList = document.getElementById("attributionPeopleList");
   els.saveItemBtn = document.getElementById("saveItemBtn");
   els.modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
@@ -116,6 +120,14 @@ function bindEvents() {
 
   els.modeButtons.forEach((btn) => {
     btn.addEventListener("click", () => setAttributionMode(btn.dataset.mode));
+  });
+
+  els.vatToggle.addEventListener("change", () => {
+    els.vatPriceRow.classList.toggle("hidden", !els.vatToggle.checked);
+    els.itemPriceLabel.textContent = els.vatToggle.checked ? "Price shown on tag (excl. VAT)" : "Price";
+    if (els.vatToggle.checked) {
+      setTimeout(() => els.itemVatPriceInput.focus(), 50);
+    }
   });
 
   els.saveItemBtn.addEventListener("click", saveItem);
@@ -260,12 +272,16 @@ function renderItemList() {
     }
 
     const attributionLabel = describeAttribution(item);
+    const vatNote = item.vatIncluded
+      ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
+      : "";
 
     li.innerHTML = `
       ${thumbHtml}
       <div class="item-info">
         <div class="item-name">${escapeHtml(item.name || "Item")}</div>
         <div class="item-attribution">${escapeHtml(attributionLabel)}</div>
+        ${vatNote}
       </div>
       <div class="item-price">${formatMoney(item.price)}</div>
       <button class="item-delete" aria-label="Delete">🗑️</button>
@@ -341,6 +357,10 @@ function openItemModal(photoDataUrl) {
   els.itemModalTitle.textContent = "Add Item";
   els.itemNameInput.value = "";
   els.itemPriceInput.value = "";
+  els.itemVatPriceInput.value = "";
+  els.vatToggle.checked = false;
+  els.vatPriceRow.classList.add("hidden");
+  els.itemPriceLabel.textContent = "Price";
 
   if (pendingPhotoDataUrl) {
     els.itemPhotoPreview.src = pendingPhotoDataUrl;
@@ -409,11 +429,26 @@ function renderAttributionPeopleList() {
 }
 
 function saveItem() {
-  const price = parseFloat(els.itemPriceInput.value);
-  if (isNaN(price) || price < 0) {
+  const tagPrice = parseFloat(els.itemPriceInput.value);
+  if (isNaN(tagPrice) || tagPrice < 0) {
     alert("Enter a valid price.");
     els.itemPriceInput.focus();
     return;
+  }
+
+  const vatIncluded = els.vatToggle.checked;
+  let price = tagPrice;
+  let priceExclVat = null;
+
+  if (vatIncluded) {
+    const vatPrice = parseFloat(els.itemVatPriceInput.value);
+    if (isNaN(vatPrice) || vatPrice < 0) {
+      alert("Enter the Inc. VAT price (the smaller number on the tag) — that's what you'll actually pay.");
+      els.itemVatPriceInput.focus();
+      return;
+    }
+    price = vatPrice;
+    priceExclVat = tagPrice;
   }
 
   let attributedTo;
@@ -432,6 +467,8 @@ function saveItem() {
   DB.addItem({
     name,
     price,
+    vatIncluded,
+    priceExclVat,
     photo: pendingPhotoDataUrl,
     attributedTo,
   });
