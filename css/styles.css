@@ -167,22 +167,6 @@ button {
   padding: 0;
 }
 
-.attribution-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.attribution-title {
-  margin: 0;
-}
-
-.attribution-title .hint {
-  font-size: 0.78rem;
-}
-
 .link-btn {
   background: none;
   border: none;
@@ -194,41 +178,38 @@ button {
   white-space: nowrap;
 }
 
-.people-check-list {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.people-check-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+.chip-list.selectable li {
   cursor: pointer;
   user-select: none;
 }
 
-.people-check-row.checked {
-  background: rgba(0, 93, 170, 0.1);
+.chip-list.selectable li.selected {
+  background: var(--costco-blue);
+  color: white;
   border-color: var(--costco-blue);
 }
 
-.people-check-row input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--costco-blue);
-  flex-shrink: 0;
+.attribution-mode-row {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 4px;
 }
 
-.people-check-row .person-name {
-  font-size: 0.95rem;
+.mode-btn {
   flex: 1;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.mode-btn.active {
+  background: var(--costco-blue);
+  color: white;
+  border-color: var(--costco-blue);
 }
 
 .primary-btn {
