@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#e31837" />
+<title>Costco Helper</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-row">
+    <h1 id="tripTitle">🛒 Costco Helper</h1>
+    <button id="menuBtn" class="icon-btn" aria-label="Menu">⋮</button>
+  </div>
+  <div id="tripSubtitle" class="trip-subtitle"></div>
+</header>
+
+<nav id="menuPanel" class="menu-panel hidden">
+  <button id="newTripBtn">🆕 New Trip</button>
+  <button id="historyBtn">📜 Past Trips</button>
+  <button id="endTripBtn" class="danger">✅ End Trip</button>
+</nav>
+
+<main id="app">
+
+  <!-- SETUP SCREEN -->
+  <section id="setupScreen" class="screen">
+    <h2>Start a shopping trip</h2>
+    <p class="hint">Add everyone who's shopping together. You can add more people later.</p>
+    <div class="people-input-row">
+      <input id="personNameInput" type="text" placeholder="Friend's name" maxlength="30" />
+      <button id="addPersonBtn">Add</button>
+    </div>
+    <ul id="peopleList" class="chip-list"></ul>
+    <button id="startTripBtn" class="primary-btn" disabled>Start Shopping 🛒</button>
+  </section>
+
+  <!-- SHOPPING SCREEN -->
+  <section id="shoppingScreen" class="screen hidden">
+
+    <div class="totals-bar" id="totalsBar"></div>
+
+    <div class="add-item-bar">
+      <label class="capture-btn" for="cameraInput">
+        📷 Snap Price / Barcode
+        <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
+      </label>
+      <button id="manualAddBtn" class="secondary-btn">✏️ Add without photo</button>
+    </div>
+
+    <h3 class="section-label">Items (<span id="itemCount">0</span>)</h3>
+    <ul id="itemList" class="item-list"></ul>
+    <p id="emptyState" class="hint">No items yet. Snap a photo of a price tag to log your first item.</p>
+  </section>
+
+  <!-- HISTORY SCREEN -->
+  <section id="historyScreen" class="screen hidden">
+    <div class="screen-header">
+      <button id="backFromHistory" class="icon-btn">←</button>
+      <h2>Past Trips</h2>
+    </div>
+    <ul id="historyList" class="history-list"></ul>
+    <p id="historyEmpty" class="hint hidden">No past trips yet.</p>
+  </section>
+
+</main>
+
+<!-- ITEM ENTRY MODAL -->
+<div id="itemModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="itemModalTitle">Add Item</h3>
+      <button id="closeModalBtn" class="icon-btn">✕</button>
+    </div>
+
+    <img id="itemPhotoPreview" class="photo-preview hidden" alt="Captured price tag" />
+
+    <label class="field-label" for="itemNameInput">What is it? (optional)</label>
+    <input id="itemNameInput" type="text" placeholder="e.g. Rotisserie Chicken" maxlength="60" />
+
+    <label class="field-label" for="itemPriceInput">Price</label>
+    <div class="price-input-row">
+      <span class="currency">$</span>
+      <input id="itemPriceInput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autofocus />
+    </div>
+
+    <label class="field-label">Who's this for?</label>
+    <div class="attribution-mode-row">
+      <button class="mode-btn active" data-mode="everyone">Split: Everyone</button>
+      <button class="mode-btn" data-mode="custom">Split: Choose</button>
+      <button class="mode-btn" data-mode="single">One person</button>
+    </div>
+    <ul id="attributionPeopleList" class="chip-list selectable"></ul>
+
+    <button id="saveItemBtn" class="primary-btn">Save Item</button>
+  </div>
+</div>
+
+<!-- SUMMARY / END TRIP MODAL -->
+<div id="summaryModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Trip Summary</h3>
+      <button id="closeSummaryBtn" class="icon-btn">✕</button>
+    </div>
+    <div id="summaryContent"></div>
+    <button id="confirmEndTripBtn" class="danger-btn">End This Trip</button>
+  </div>
+</div>
+
+<script src="js/db.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
