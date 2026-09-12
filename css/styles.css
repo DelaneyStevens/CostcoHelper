@@ -313,7 +313,13 @@ button {
 .add-item-bar {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
+}
+
+.capture-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 20px;
 }
 
 .capture-btn {
@@ -446,8 +452,18 @@ button {
   max-height: 220px;
   object-fit: contain;
   border-radius: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
   background: var(--bg);
+}
+
+.ocr-status {
+  font-size: 0.82rem;
+  color: var(--costco-blue);
+  margin: 0 0 14px;
+}
+
+.ocr-status.ocr-error {
+  color: var(--text-muted);
 }
 
 .field-label {

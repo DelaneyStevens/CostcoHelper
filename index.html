@@ -52,6 +52,7 @@
       </label>
       <button id="manualAddBtn" class="secondary-btn">✏️ Add without photo</button>
     </div>
+    <p class="capture-hint">Tip: get close so just the price number fills the frame — makes auto-reading it much more reliable.</p>
 
     <h3 class="section-label">Items (<span id="itemCount">0</span>)</h3>
     <ul id="itemList" class="item-list"></ul>
@@ -79,6 +80,7 @@
     </div>
 
     <img id="itemPhotoPreview" class="photo-preview hidden" alt="Captured price tag" />
+    <p id="ocrStatus" class="ocr-status hidden"></p>
 
     <label class="field-label" for="itemNameInput">What is it? (optional)</label>
     <input id="itemNameInput" type="text" placeholder="e.g. Rotisserie Chicken" maxlength="60" />
@@ -124,6 +126,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="js/db.js"></script>
 <script src="js/app.js"></script>
 </body>

@@ -54,6 +54,7 @@ function cacheEls() {
   els.itemModalTitle = document.getElementById("itemModalTitle");
   els.closeModalBtn = document.getElementById("closeModalBtn");
   els.itemPhotoPreview = document.getElementById("itemPhotoPreview");
+  els.ocrStatus = document.getElementById("ocrStatus");
   els.itemNameInput = document.getElementById("itemNameInput");
   els.itemPriceLabel = document.getElementById("itemPriceLabel");
   els.itemPriceInput = document.getElementById("itemPriceInput");
@@ -318,11 +319,67 @@ function describeAttribution(item) {
 function handlePhotoCapture(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
-  resizeImageToDataUrl(file, 500, (dataUrl) => {
-    pendingPhotoDataUrl = dataUrl;
-    openItemModal(dataUrl);
+  resizeImageToDataUrl(file, 500, (thumbDataUrl) => {
+    pendingPhotoDataUrl = thumbDataUrl;
+    openItemModal(thumbDataUrl);
     els.cameraInput.value = "";
   });
+  // A larger, higher-detail version (not stored) purely for reading the digits.
+  resizeImageToDataUrl(file, 1000, (ocrDataUrl) => {
+    runOcrOnPhoto(ocrDataUrl);
+  });
+}
+
+function runOcrOnPhoto(dataUrl) {
+  if (typeof Tesseract === "undefined") return;
+
+  els.ocrStatus.textContent = "🔎 Reading price from photo…";
+  els.ocrStatus.classList.remove("hidden", "ocr-error");
+
+  Tesseract.recognize(dataUrl, "eng")
+    .then(({ data }) => {
+      // The modal may have been closed, or the price already typed by hand, before this resolves.
+      if (els.itemModal.classList.contains("hidden")) return;
+
+      const prices = extractPricesFromText(data.text);
+
+      if (prices.length === 0) {
+        els.ocrStatus.textContent = "Couldn't read a price automatically — enter it below.";
+        els.ocrStatus.classList.add("ocr-error");
+        return;
+      }
+
+      if (els.itemPriceInput.value.trim() !== "") return; // user already typed something
+
+      if (prices.length === 1) {
+        els.itemPriceInput.value = prices[0].toFixed(2);
+        els.ocrStatus.textContent = `Filled in $${prices[0].toFixed(2)} from the photo — please double-check it.`;
+      } else {
+        // VAT tags show two numbers; the Inc. VAT amount is always the higher one.
+        const shown = Math.min(...prices);
+        const incVat = Math.max(...prices);
+        els.itemPriceInput.value = shown.toFixed(2);
+        els.itemVatPriceInput.value = incVat.toFixed(2);
+        if (!els.vatToggle.checked) {
+          els.vatToggle.checked = true;
+          els.vatToggle.dispatchEvent(new Event("change"));
+        }
+        els.ocrStatus.textContent = `Found two prices ($${shown.toFixed(2)} and $${incVat.toFixed(2)} Inc. VAT) — please double-check them.`;
+      }
+    })
+    .catch(() => {
+      if (els.itemModal.classList.contains("hidden")) return;
+      els.ocrStatus.textContent = "Couldn't read a price automatically — enter it below.";
+      els.ocrStatus.classList.add("ocr-error");
+    });
+}
+
+function extractPricesFromText(text) {
+  const matches = text.match(/\d{1,4}[.,]\d{2}/g) || [];
+  const values = matches
+    .map((m) => parseFloat(m.replace(",", ".")))
+    .filter((v) => !isNaN(v) && v > 0 && v < 1000);
+  return Array.from(new Set(values));
 }
 
 function resizeImageToDataUrl(file, maxDim, callback) {
@@ -361,6 +418,9 @@ function openItemModal(photoDataUrl) {
   els.vatToggle.checked = false;
   els.vatPriceRow.classList.add("hidden");
   els.itemPriceLabel.textContent = "Price";
+
+  els.ocrStatus.textContent = "";
+  els.ocrStatus.classList.add("hidden");
 
   if (pendingPhotoDataUrl) {
     els.itemPhotoPreview.src = pendingPhotoDataUrl;
