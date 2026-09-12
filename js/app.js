@@ -5,6 +5,9 @@ let pendingPhotoDataUrl = null;
 let selectedPeopleIds = new Set();
 let editingSetupPeople = [];
 let expandedItemId = null;
+let vatPriceAuto = true;
+
+const VAT_RATE = 0.2;
 
 const els = {};
 
@@ -128,8 +131,17 @@ function bindEvents() {
     els.vatPriceRow.classList.toggle("hidden", !els.vatToggle.checked);
     els.itemPriceLabel.textContent = els.vatToggle.checked ? "Price shown on tag (excl. VAT)" : "Price";
     if (els.vatToggle.checked) {
+      if (vatPriceAuto) recomputeVatPrice();
       setTimeout(() => els.itemVatPriceInput.focus(), 50);
     }
+  });
+
+  els.itemPriceInput.addEventListener("input", () => {
+    if (els.vatToggle.checked && vatPriceAuto) recomputeVatPrice();
+  });
+
+  els.itemVatPriceInput.addEventListener("input", () => {
+    vatPriceAuto = false;
   });
 
   els.saveItemBtn.addEventListener("click", saveItem);
@@ -391,6 +403,15 @@ function handlePhotoCapture(e) {
   });
 }
 
+function recomputeVatPrice() {
+  const base = parseFloat(els.itemPriceInput.value);
+  if (isNaN(base) || base < 0) {
+    els.itemVatPriceInput.value = "";
+    return;
+  }
+  els.itemVatPriceInput.value = (Math.round(base * (1 + VAT_RATE) * 100) / 100).toFixed(2);
+}
+
 function runOcrOnPhoto(dataUrl) {
   if (typeof Tesseract === "undefined") return;
 
@@ -421,6 +442,7 @@ function runOcrOnPhoto(dataUrl) {
         const incVat = Math.max(...prices);
         els.itemPriceInput.value = shown.toFixed(2);
         els.itemVatPriceInput.value = incVat.toFixed(2);
+        vatPriceAuto = false; // we read the real Inc. VAT number, don't let auto-calc overwrite it
         if (!els.vatToggle.checked) {
           els.vatToggle.checked = true;
           els.vatToggle.dispatchEvent(new Event("change"));
@@ -479,6 +501,7 @@ function openItemModal(photoDataUrl) {
   els.vatToggle.checked = false;
   els.vatPriceRow.classList.add("hidden");
   els.itemPriceLabel.textContent = "Price";
+  vatPriceAuto = true;
 
   els.ocrStatus.textContent = "";
   els.ocrStatus.classList.add("hidden");
