@@ -94,7 +94,7 @@ function bindEvents() {
 
   els.newTripBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (activeTrip && !confirm("Start a new trip? Your current trip will stay saved — you can end it from the menu.")) {
+    if (activeTrip && !confirm("Start a new trip? Your current trip will be saved to Past Trips.")) {
       return;
     }
     showSetupScreen();

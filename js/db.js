@@ -21,6 +21,9 @@ const DB = (() => {
   }
 
   function createTrip(peopleNames) {
+    if (getActiveTrip()) {
+      endActiveTrip();
+    }
     const trip = {
       id: uid(),
       createdAt: Date.now(),
