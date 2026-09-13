@@ -9,6 +9,7 @@ let expandedItemId = null;
 let vatPriceAuto = true;
 let editingItemId = null;
 let filterPersonId = null;
+let summaryTrip = null;
 
 const VAT_RATE = 0.2;
 
@@ -77,6 +78,7 @@ function cacheEls() {
   els.summaryModal = document.getElementById("summaryModal");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
   els.summaryContent = document.getElementById("summaryContent");
+  els.downloadReceiptBtn = document.getElementById("downloadReceiptBtn");
   els.confirmEndTripBtn = document.getElementById("confirmEndTripBtn");
 }
 
@@ -157,6 +159,7 @@ function bindEvents() {
   els.saveItemBtn.addEventListener("click", saveItem);
 
   els.closeSummaryBtn.addEventListener("click", () => els.summaryModal.classList.add("hidden"));
+  els.downloadReceiptBtn.addEventListener("click", () => downloadReceipt(summaryTrip));
   els.confirmEndTripBtn.addEventListener("click", () => {
     if (confirm("End this trip? It will be moved to Past Trips.")) {
       DB.endActiveTrip();
@@ -697,6 +700,7 @@ function saveItem() {
 // ---------- Summary / end trip ----------
 
 function openSummaryModal() {
+  summaryTrip = activeTrip;
   const { totals, grandTotal } = computeTotals(activeTrip);
   els.summaryContent.innerHTML = "";
 
@@ -713,6 +717,51 @@ function openSummaryModal() {
   els.summaryContent.appendChild(totalRow);
 
   els.summaryModal.classList.remove("hidden");
+}
+
+function generateReceiptText(trip) {
+  const { totals, grandTotal } = computeTotals(trip);
+  const peopleById = {};
+  trip.people.forEach((p) => (peopleById[p.id] = p.name));
+
+  const divider = "-".repeat(32);
+  const lines = ["COSTCO HELPER — TRIP RECEIPT", formatDate(trip.createdAt), divider, ""];
+
+  trip.items
+    .slice()
+    .reverse()
+    .forEach((item) => {
+      const name = item.name && item.name.trim() ? item.name.trim() : "Item";
+      const who =
+        item.attributedTo && item.attributedTo.length > 0
+          ? item.attributedTo.map((id) => peopleById[id] || "?").join(", ")
+          : "Everyone";
+      lines.push(`${name} — ${formatMoney(item.price)} (${who})`);
+    });
+
+  lines.push("", divider);
+  trip.people.forEach((person) => {
+    lines.push(`${person.name.padEnd(20)} ${formatMoney(totals[person.id] || 0)}`);
+  });
+  lines.push(divider, `${"TRIP TOTAL".padEnd(20)} ${formatMoney(grandTotal)}`);
+
+  return lines.join("\n");
+}
+
+function downloadReceipt(trip) {
+  if (!trip) return;
+  const text = generateReceiptText(trip);
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const dateStr = new Date(trip.createdAt).toISOString().slice(0, 10);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `costco-receipt-${dateStr}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 // ---------- History ----------
@@ -736,6 +785,7 @@ function renderHistory() {
 }
 
 function showHistoryTripSummary(trip) {
+  summaryTrip = trip;
   const { totals, grandTotal } = computeTotals(trip);
   els.summaryContent.innerHTML = "";
 
