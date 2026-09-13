@@ -41,6 +41,7 @@ function cacheEls() {
   els.endTripBtn = document.getElementById("endTripBtn");
 
   els.setupScreen = document.getElementById("setupScreen");
+  els.tripNameInput = document.getElementById("tripNameInput");
   els.personNameInput = document.getElementById("personNameInput");
   els.addPersonBtn = document.getElementById("addPersonBtn");
   els.peopleList = document.getElementById("peopleList");
@@ -77,6 +78,7 @@ function cacheEls() {
   els.saveItemBtn = document.getElementById("saveItemBtn");
 
   els.summaryModal = document.getElementById("summaryModal");
+  els.summaryTitle = document.getElementById("summaryTitle");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
   els.summaryContent = document.getElementById("summaryContent");
   els.shareSummaryBtn = document.getElementById("shareSummaryBtn");
@@ -190,6 +192,7 @@ function hideAllScreens() {
 function showSetupScreen() {
   hideAllScreens();
   editingSetupPeople = activeTrip ? [...activeTrip.people] : [];
+  els.tripNameInput.value = "";
   renderSetupPeopleList();
   els.setupScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 Costco Helper";
@@ -206,7 +209,7 @@ function showShoppingScreen() {
   expandedItemId = null;
   filterPersonId = null;
   els.shoppingScreen.classList.remove("hidden");
-  els.tripTitle.textContent = "🛒 Shopping Trip";
+  els.tripTitle.textContent = activeTrip.name ? `🛒 ${activeTrip.name}` : "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
   renderTotals();
   renderItemList();
@@ -251,7 +254,7 @@ function renderSetupPeopleList() {
 
 function startTrip() {
   if (editingSetupPeople.length === 0) return;
-  activeTrip = DB.createTrip(editingSetupPeople.map((p) => p.name));
+  activeTrip = DB.createTrip(editingSetupPeople.map((p) => p.name), els.tripNameInput.value);
   showShoppingScreen();
 }
 
@@ -710,6 +713,7 @@ function saveItem() {
 
 function openSummaryModal() {
   summaryTrip = activeTrip;
+  els.summaryTitle.textContent = activeTrip.name ? activeTrip.name : "Trip Summary";
   const { totals, grandTotal } = computeTotals(activeTrip);
   els.summaryContent.innerHTML = "";
 
@@ -734,7 +738,8 @@ function generateReceiptText(trip) {
   trip.people.forEach((p) => (peopleById[p.id] = p.name));
 
   const divider = "-".repeat(32);
-  const lines = ["COSTCO HELPER — TRIP SUMMARY", formatDate(trip.createdAt), divider, ""];
+  const heading = trip.name ? `COSTCO HELPER — ${trip.name.toUpperCase()}` : "COSTCO HELPER — TRIP SUMMARY";
+  const lines = [heading, formatDate(trip.createdAt), divider, ""];
 
   trip.items
     .slice()
@@ -776,7 +781,7 @@ function downloadReceipt(trip) {
 function shareTrip(trip) {
   if (!trip) return;
   const text = generateReceiptText(trip);
-  const title = `Costco Trip — ${formatDate(trip.createdAt)}`;
+  const title = trip.name ? trip.name : `Costco Trip — ${formatDate(trip.createdAt)}`;
 
   if (navigator.share) {
     navigator.share({ title, text }).catch(() => {});
@@ -806,6 +811,7 @@ function renderHistory() {
     const li = document.createElement("li");
     li.className = "history-card";
     li.innerHTML = `
+      ${trip.name ? `<div class="hname">${escapeHtml(trip.name)}</div>` : ""}
       <div class="hdate">${formatDate(trip.createdAt)} · ${trip.people.length} people · ${trip.items.length} items</div>
       <div class="htotal">${formatMoney(grandTotal)}</div>
     `;
@@ -816,6 +822,7 @@ function renderHistory() {
 
 function showHistoryTripSummary(trip) {
   summaryTrip = trip;
+  els.summaryTitle.textContent = trip.name ? trip.name : "Trip Summary";
   const { totals, grandTotal } = computeTotals(trip);
   els.summaryContent.innerHTML = "";
 

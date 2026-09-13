@@ -674,6 +674,10 @@ button {
   margin-top: 18px;
 }
 
+#tripNameInput {
+  margin-bottom: 14px;
+}
+
 .summary-actions {
   display: flex;
   gap: 8px;
@@ -712,6 +716,13 @@ button {
   border-radius: var(--radius);
   padding: 14px;
   cursor: pointer;
+}
+
+.history-card .hname {
+  font-family: "Outfit", sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 2px;
 }
 
 .history-card .hdate {

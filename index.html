@@ -35,6 +35,8 @@
   <!-- SETUP SCREEN -->
   <section id="setupScreen" class="screen">
     <h2>Start a shopping trip</h2>
+    <label class="field-label" for="tripNameInput">Trip name (optional)</label>
+    <input id="tripNameInput" type="text" placeholder="e.g. Weekly Costco Run" maxlength="40" />
     <p class="hint">Add everyone who's shopping together. You can add more people later.</p>
     <div class="people-input-row">
       <input id="personNameInput" type="text" placeholder="Friend's name" maxlength="30" />
@@ -127,7 +129,7 @@
 <div id="summaryModal" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-header">
-      <h3>Trip Summary</h3>
+      <h3 id="summaryTitle">Trip Summary</h3>
       <button id="closeSummaryBtn" class="icon-btn">✕</button>
     </div>
     <div id="summaryContent"></div>
