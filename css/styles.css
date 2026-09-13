@@ -674,9 +674,15 @@ button {
   margin-top: 18px;
 }
 
-.full-width {
-  width: 100%;
+.summary-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 16px;
+}
+
+.summary-actions .secondary-btn {
+  flex: 1;
+  width: 100%;
 }
 
 .screen-header {

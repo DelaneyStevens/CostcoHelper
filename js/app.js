@@ -37,6 +37,7 @@ function cacheEls() {
   els.menuPanel = document.getElementById("menuPanel");
   els.newTripBtn = document.getElementById("newTripBtn");
   els.historyBtn = document.getElementById("historyBtn");
+  els.shareTripBtn = document.getElementById("shareTripBtn");
   els.endTripBtn = document.getElementById("endTripBtn");
 
   els.setupScreen = document.getElementById("setupScreen");
@@ -78,6 +79,7 @@ function cacheEls() {
   els.summaryModal = document.getElementById("summaryModal");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
   els.summaryContent = document.getElementById("summaryContent");
+  els.shareSummaryBtn = document.getElementById("shareSummaryBtn");
   els.downloadReceiptBtn = document.getElementById("downloadReceiptBtn");
   els.confirmEndTripBtn = document.getElementById("confirmEndTripBtn");
 }
@@ -101,6 +103,12 @@ function bindEvents() {
   els.historyBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
     showHistoryScreen();
+  });
+
+  els.shareTripBtn.addEventListener("click", () => {
+    els.menuPanel.classList.add("hidden");
+    if (!activeTrip) return;
+    shareTrip(activeTrip);
   });
 
   els.endTripBtn.addEventListener("click", () => {
@@ -159,6 +167,7 @@ function bindEvents() {
   els.saveItemBtn.addEventListener("click", saveItem);
 
   els.closeSummaryBtn.addEventListener("click", () => els.summaryModal.classList.add("hidden"));
+  els.shareSummaryBtn.addEventListener("click", () => shareTrip(summaryTrip));
   els.downloadReceiptBtn.addEventListener("click", () => downloadReceipt(summaryTrip));
   els.confirmEndTripBtn.addEventListener("click", () => {
     if (confirm("End this trip? It will be moved to Past Trips.")) {
@@ -725,7 +734,7 @@ function generateReceiptText(trip) {
   trip.people.forEach((p) => (peopleById[p.id] = p.name));
 
   const divider = "-".repeat(32);
-  const lines = ["COSTCO HELPER — TRIP RECEIPT", formatDate(trip.createdAt), divider, ""];
+  const lines = ["COSTCO HELPER — TRIP SUMMARY", formatDate(trip.createdAt), divider, ""];
 
   trip.items
     .slice()
@@ -762,6 +771,27 @@ function downloadReceipt(trip) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+function shareTrip(trip) {
+  if (!trip) return;
+  const text = generateReceiptText(trip);
+  const title = `Costco Trip — ${formatDate(trip.createdAt)}`;
+
+  if (navigator.share) {
+    navigator.share({ title, text }).catch(() => {});
+    return;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => alert("Trip copied to clipboard!"))
+      .catch(() => alert(text));
+    return;
+  }
+
+  alert(text);
 }
 
 // ---------- History ----------
