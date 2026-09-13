@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="32" fill="#005daa"/>
-  <text x="96" y="122" font-size="96" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif">🛒</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <rect width="96" height="96" rx="18" fill="#be6478"/>
+  <polyline points="16,26 26,26 34,34" stroke="#f3d8de" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="24" y="34" width="48" height="26" rx="6" fill="#f3d8de"/>
+  <circle cx="36" cy="72" r="6" fill="#f3d8de"/>
+  <circle cx="64" cy="72" r="6" fill="#f3d8de"/>
 </svg>
