@@ -1,5 +1,7 @@
 # Costco Helper 🛒
 
+🔗 **Live app:** https://delaneystevens.github.io/CostcoHelper/index.html
+
 A mobile-friendly web app for tracking what everyone spends on a shared
 Costco run. Snap a photo of a price tag as you shop, log the price, and
 attribute it to one friend or split it between everyone — running totals
