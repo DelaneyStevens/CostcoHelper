@@ -23,6 +23,9 @@
   --total-default-bg: #f3d8de;
   --total-default-border: #e4b9c4;
   --total-default-text: #be6478;
+
+  --capture-bg: #8b9a6e;
+  --capture-text: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -49,6 +52,9 @@
     --total-default-bg: #4a2f36;
     --total-default-border: #5c3b43;
     --total-default-text: #e58ca0;
+
+    --capture-bg: #a3b587;
+    --capture-text: #241a14;
   }
 }
 
@@ -371,8 +377,8 @@ button {
 
 .capture-btn {
   flex: 1;
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--capture-bg);
+  color: var(--capture-text);
   border-radius: 12px;
   padding: 16px;
   text-align: center;
