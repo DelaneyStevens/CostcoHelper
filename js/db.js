@@ -74,6 +74,12 @@ const DB = (() => {
     return raw ? JSON.parse(raw) : [];
   }
 
+  function deleteTrip(tripId) {
+    const history = getHistory().filter((t) => t.id !== tripId);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    return history;
+  }
+
   function endActiveTrip() {
     const trip = getActiveTrip();
     if (!trip) return;
@@ -95,6 +101,7 @@ const DB = (() => {
     updateItem,
     deleteItem,
     getHistory,
+    deleteTrip,
     endActiveTrip,
   };
 })();

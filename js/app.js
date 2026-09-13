@@ -9,6 +9,8 @@ let expandedItemId = null;
 let vatPriceAuto = true;
 let editingItemId = null;
 let filterPersonId = null;
+let viewingHistoryTrip = null;
+let historyDetailFilterPersonId = null;
 let summaryTrip = null;
 
 const VAT_RATE = 0.2;
@@ -61,6 +63,16 @@ function cacheEls() {
   els.backFromHistory = document.getElementById("backFromHistory");
   els.historyList = document.getElementById("historyList");
   els.historyEmpty = document.getElementById("historyEmpty");
+
+  els.historyDetailScreen = document.getElementById("historyDetailScreen");
+  els.backFromHistoryDetail = document.getElementById("backFromHistoryDetail");
+  els.historyDetailTitle = document.getElementById("historyDetailTitle");
+  els.deleteHistoryTripBtn = document.getElementById("deleteHistoryTripBtn");
+  els.historyDetailTotalsBar = document.getElementById("historyDetailTotalsBar");
+  els.historyDetailItemCount = document.getElementById("historyDetailItemCount");
+  els.historyDetailItemList = document.getElementById("historyDetailItemList");
+  els.shareHistoryTripBtn = document.getElementById("shareHistoryTripBtn");
+  els.downloadHistoryReceiptBtn = document.getElementById("downloadHistoryReceiptBtn");
 
   els.itemModal = document.getElementById("itemModal");
   els.itemModalTitle = document.getElementById("itemModalTitle");
@@ -123,6 +135,20 @@ function bindEvents() {
     if (activeTrip) showShoppingScreen();
     else showSetupScreen();
   });
+
+  els.backFromHistoryDetail.addEventListener("click", showHistoryScreen);
+
+  els.deleteHistoryTripBtn.addEventListener("click", () => {
+    if (!viewingHistoryTrip) return;
+    if (confirm("Delete this trip? This cannot be undone.")) {
+      DB.deleteTrip(viewingHistoryTrip.id);
+      viewingHistoryTrip = null;
+      showHistoryScreen();
+    }
+  });
+
+  els.shareHistoryTripBtn.addEventListener("click", () => shareTrip(viewingHistoryTrip));
+  els.downloadHistoryReceiptBtn.addEventListener("click", () => downloadReceipt(viewingHistoryTrip));
 
   // Setup screen
   els.addPersonBtn.addEventListener("click", addPersonFromInput);
@@ -187,6 +213,7 @@ function hideAllScreens() {
   els.setupScreen.classList.add("hidden");
   els.shoppingScreen.classList.add("hidden");
   els.historyScreen.classList.add("hidden");
+  els.historyDetailScreen.classList.add("hidden");
 }
 
 function showSetupScreen() {
@@ -811,44 +838,121 @@ function renderHistory() {
     const li = document.createElement("li");
     li.className = "history-card";
     li.innerHTML = `
-      ${trip.name ? `<div class="hname">${escapeHtml(trip.name)}</div>` : ""}
-      <div class="hdate">${formatDate(trip.createdAt)} · ${trip.people.length} people · ${trip.items.length} items</div>
-      <div class="htotal">${formatMoney(grandTotal)}</div>
+      <div class="history-card-main">
+        ${trip.name ? `<div class="hname">${escapeHtml(trip.name)}</div>` : ""}
+        <div class="hdate">${formatDate(trip.createdAt)} · ${trip.people.length} people · ${trip.items.length} items</div>
+        <div class="htotal">${formatMoney(grandTotal)}</div>
+      </div>
+      <button type="button" class="history-delete" aria-label="Delete trip">🗑️</button>
     `;
-    li.addEventListener("click", () => showHistoryTripSummary(trip));
+    li.addEventListener("click", () => showHistoryDetailScreen(trip));
+    li.querySelector(".history-delete").addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (confirm("Delete this trip? This cannot be undone.")) {
+        DB.deleteTrip(trip.id);
+        renderHistory();
+      }
+    });
     els.historyList.appendChild(li);
   });
 }
 
-function showHistoryTripSummary(trip) {
-  summaryTrip = trip;
-  els.summaryTitle.textContent = trip.name ? trip.name : "Trip Summary";
+function showHistoryDetailScreen(trip) {
+  viewingHistoryTrip = trip;
+  historyDetailFilterPersonId = null;
+  hideAllScreens();
+  els.historyDetailScreen.classList.remove("hidden");
+  els.tripTitle.textContent = "📜 Past Trips";
+  els.tripSubtitle.textContent = "";
+  els.historyDetailTitle.textContent = trip.name
+    ? trip.name
+    : `${formatDate(trip.createdAt)} · ${formatTime(trip.createdAt)}`;
+  renderHistoryDetailTotals();
+  renderHistoryDetailItemList();
+}
+
+function historyDetailItemTargets(item) {
+  return item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : viewingHistoryTrip.people.map((p) => p.id);
+}
+
+function renderHistoryDetailTotals() {
+  const trip = viewingHistoryTrip;
   const { totals, grandTotal } = computeTotals(trip);
-  els.summaryContent.innerHTML = "";
+  els.historyDetailTotalsBar.innerHTML = "";
+
+  const grandCard = document.createElement("button");
+  grandCard.type = "button";
+  grandCard.className = "total-card grand";
+  if (historyDetailFilterPersonId === null) grandCard.classList.add("selected");
+  grandCard.innerHTML = `<div class="name">Trip Total</div><div class="amount">${formatMoney(grandTotal)}</div>`;
+  grandCard.addEventListener("click", () => {
+    historyDetailFilterPersonId = null;
+    renderHistoryDetailTotals();
+    renderHistoryDetailItemList();
+  });
+  els.historyDetailTotalsBar.appendChild(grandCard);
 
   trip.people.forEach((person) => {
-    const row = document.createElement("div");
-    row.className = "summary-person-row";
-    row.innerHTML = `<span>${escapeHtml(person.name)}</span><span>${formatMoney(totals[person.id] || 0)}</span>`;
-    els.summaryContent.appendChild(row);
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "total-card";
+    if (historyDetailFilterPersonId === person.id) card.classList.add("selected");
+    card.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="amount">${formatMoney(totals[person.id] || 0)}</div>`;
+    card.addEventListener("click", () => {
+      historyDetailFilterPersonId = historyDetailFilterPersonId === person.id ? null : person.id;
+      renderHistoryDetailTotals();
+      renderHistoryDetailItemList();
+    });
+    els.historyDetailTotalsBar.appendChild(card);
   });
+}
 
-  const totalRow = document.createElement("div");
-  totalRow.className = "summary-total-row";
-  totalRow.innerHTML = `<span>Trip Total</span><span>${formatMoney(grandTotal)}</span>`;
-  els.summaryContent.appendChild(totalRow);
+function renderHistoryDetailItemList() {
+  const trip = viewingHistoryTrip;
+  els.historyDetailItemList.innerHTML = "";
 
-  els.confirmEndTripBtn.classList.add("hidden");
-  els.summaryModal.classList.remove("hidden");
+  const filterPerson = historyDetailFilterPersonId ? trip.people.find((p) => p.id === historyDetailFilterPersonId) : null;
+  const items = filterPerson ? trip.items.filter((item) => historyDetailItemTargets(item).includes(filterPerson.id)) : trip.items;
 
-  const reset = () => {
-    els.confirmEndTripBtn.classList.remove("hidden");
-    els.summaryModal.removeEventListener("click", onOverlayClick);
-  };
-  function onOverlayClick(e) {
-    if (e.target === els.summaryModal) reset();
-  }
-  els.closeSummaryBtn.addEventListener("click", reset, { once: true });
+  els.historyDetailItemCount.textContent = items.length;
+
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = "item-card";
+
+    let thumbHtml;
+    if (item.photo) {
+      thumbHtml = `<img class="item-thumb" src="${item.photo}" alt="" />`;
+    } else {
+      thumbHtml = `<div class="item-thumb placeholder">🧾</div>`;
+    }
+
+    const targets = historyDetailItemTargets(item);
+    let attributionLabel;
+    if (targets.length === trip.people.length) {
+      attributionLabel = "Split: everyone";
+    } else {
+      const names = targets.map((id) => trip.people.find((p) => p.id === id)).filter(Boolean).map((p) => p.name);
+      attributionLabel = names.length === 1 ? `For ${names[0]}` : `Split: ${names.join(", ")}`;
+    }
+    const vatNote = item.vatIncluded
+      ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
+      : "";
+
+    li.innerHTML = `
+      <div class="item-card-row">
+        ${thumbHtml}
+        <div class="item-info">
+          <div class="item-name">${escapeHtml(item.name || "Item")}</div>
+          <div class="item-attribution">${escapeHtml(attributionLabel)}</div>
+          ${vatNote}
+        </div>
+        <div class="item-price">${formatMoney(item.price)}</div>
+      </div>
+    `;
+
+    els.historyDetailItemList.appendChild(li);
+  });
 }
 
 // ---------- Utils ----------

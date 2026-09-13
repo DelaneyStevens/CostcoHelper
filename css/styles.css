@@ -702,6 +702,10 @@ button {
   border: 1px solid var(--border);
 }
 
+.screen-header h2 {
+  flex: 1;
+}
+
 .history-list {
   list-style: none;
   padding: 0;
@@ -716,6 +720,23 @@ button {
   border-radius: var(--radius);
   padding: 14px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-card .history-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-card .history-delete {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  padding: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .history-card .hname {
