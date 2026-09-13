@@ -26,6 +26,7 @@
 <nav id="menuPanel" class="menu-panel hidden">
   <button id="newTripBtn">🆕 New Trip</button>
   <button id="historyBtn">📜 Past Trips</button>
+  <button id="shareTripBtn">🔗 Share Trip</button>
   <button id="endTripBtn" class="danger">✅ End Trip</button>
 </nav>
 
@@ -34,6 +35,8 @@
   <!-- SETUP SCREEN -->
   <section id="setupScreen" class="screen">
     <h2>Start a shopping trip</h2>
+    <label class="field-label" for="tripNameInput">Trip name (optional)</label>
+    <input id="tripNameInput" type="text" placeholder="e.g. Weekly Costco Run" maxlength="40" />
     <p class="hint">Add everyone who's shopping together. You can add more people later.</p>
     <div class="people-input-row">
       <input id="personNameInput" type="text" placeholder="Friend's name" maxlength="30" />
@@ -83,6 +86,10 @@
       <button id="deleteHistoryTripBtn" class="icon-btn" aria-label="Delete trip">🗑️</button>
     </div>
     <div class="totals-bar" id="historyDetailTotalsBar"></div>
+    <div class="summary-actions">
+      <button id="shareHistoryTripBtn" class="secondary-btn">🔗 Share</button>
+      <button id="downloadHistoryReceiptBtn" class="secondary-btn">⬇️ Download</button>
+    </div>
     <h3 class="section-label">Items (<span id="historyDetailItemCount">0</span>)</h3>
     <ul id="historyDetailItemList" class="item-list"></ul>
   </section>
@@ -138,10 +145,14 @@
 <div id="summaryModal" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-header">
-      <h3>Trip Summary</h3>
+      <h3 id="summaryTitle">Trip Summary</h3>
       <button id="closeSummaryBtn" class="icon-btn">✕</button>
     </div>
     <div id="summaryContent"></div>
+    <div class="summary-actions">
+      <button id="shareSummaryBtn" class="secondary-btn">🔗 Share</button>
+      <button id="downloadReceiptBtn" class="secondary-btn">⬇️ Download</button>
+    </div>
     <button id="confirmEndTripBtn" class="danger-btn">End This Trip</button>
   </div>
 </div>

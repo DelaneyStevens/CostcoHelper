@@ -11,6 +11,7 @@ let editingItemId = null;
 let filterPersonId = null;
 let viewingHistoryTrip = null;
 let historyDetailFilterPersonId = null;
+let summaryTrip = null;
 
 const VAT_RATE = 0.2;
 
@@ -38,9 +39,11 @@ function cacheEls() {
   els.menuPanel = document.getElementById("menuPanel");
   els.newTripBtn = document.getElementById("newTripBtn");
   els.historyBtn = document.getElementById("historyBtn");
+  els.shareTripBtn = document.getElementById("shareTripBtn");
   els.endTripBtn = document.getElementById("endTripBtn");
 
   els.setupScreen = document.getElementById("setupScreen");
+  els.tripNameInput = document.getElementById("tripNameInput");
   els.personNameInput = document.getElementById("personNameInput");
   els.addPersonBtn = document.getElementById("addPersonBtn");
   els.peopleList = document.getElementById("peopleList");
@@ -68,6 +71,8 @@ function cacheEls() {
   els.historyDetailTotalsBar = document.getElementById("historyDetailTotalsBar");
   els.historyDetailItemCount = document.getElementById("historyDetailItemCount");
   els.historyDetailItemList = document.getElementById("historyDetailItemList");
+  els.shareHistoryTripBtn = document.getElementById("shareHistoryTripBtn");
+  els.downloadHistoryReceiptBtn = document.getElementById("downloadHistoryReceiptBtn");
 
   els.itemModal = document.getElementById("itemModal");
   els.itemModalTitle = document.getElementById("itemModalTitle");
@@ -85,8 +90,11 @@ function cacheEls() {
   els.saveItemBtn = document.getElementById("saveItemBtn");
 
   els.summaryModal = document.getElementById("summaryModal");
+  els.summaryTitle = document.getElementById("summaryTitle");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
   els.summaryContent = document.getElementById("summaryContent");
+  els.shareSummaryBtn = document.getElementById("shareSummaryBtn");
+  els.downloadReceiptBtn = document.getElementById("downloadReceiptBtn");
   els.confirmEndTripBtn = document.getElementById("confirmEndTripBtn");
 }
 
@@ -100,7 +108,7 @@ function bindEvents() {
 
   els.newTripBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (activeTrip && !confirm("Start a new trip? Your current trip will stay saved — you can end it from the menu.")) {
+    if (activeTrip && !confirm("Start a new trip? Your current trip will be saved to Past Trips.")) {
       return;
     }
     showSetupScreen();
@@ -109,6 +117,12 @@ function bindEvents() {
   els.historyBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
     showHistoryScreen();
+  });
+
+  els.shareTripBtn.addEventListener("click", () => {
+    els.menuPanel.classList.add("hidden");
+    if (!activeTrip) return;
+    shareTrip(activeTrip);
   });
 
   els.endTripBtn.addEventListener("click", () => {
@@ -132,6 +146,9 @@ function bindEvents() {
       showHistoryScreen();
     }
   });
+
+  els.shareHistoryTripBtn.addEventListener("click", () => shareTrip(viewingHistoryTrip));
+  els.downloadHistoryReceiptBtn.addEventListener("click", () => downloadReceipt(viewingHistoryTrip));
 
   // Setup screen
   els.addPersonBtn.addEventListener("click", addPersonFromInput);
@@ -178,6 +195,8 @@ function bindEvents() {
   els.saveItemBtn.addEventListener("click", saveItem);
 
   els.closeSummaryBtn.addEventListener("click", () => els.summaryModal.classList.add("hidden"));
+  els.shareSummaryBtn.addEventListener("click", () => shareTrip(summaryTrip));
+  els.downloadReceiptBtn.addEventListener("click", () => downloadReceipt(summaryTrip));
   els.confirmEndTripBtn.addEventListener("click", () => {
     if (confirm("End this trip? It will be moved to Past Trips.")) {
       DB.endActiveTrip();
@@ -200,6 +219,7 @@ function hideAllScreens() {
 function showSetupScreen() {
   hideAllScreens();
   editingSetupPeople = activeTrip ? [...activeTrip.people] : [];
+  els.tripNameInput.value = "";
   renderSetupPeopleList();
   els.setupScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 CartShare";
@@ -216,7 +236,7 @@ function showShoppingScreen() {
   expandedItemId = null;
   filterPersonId = null;
   els.shoppingScreen.classList.remove("hidden");
-  els.tripTitle.textContent = "🛒 Shopping Trip";
+  els.tripTitle.textContent = activeTrip.name ? `🛒 ${activeTrip.name}` : "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
   renderTotals();
   renderItemList();
@@ -261,7 +281,7 @@ function renderSetupPeopleList() {
 
 function startTrip() {
   if (editingSetupPeople.length === 0) return;
-  activeTrip = DB.createTrip(editingSetupPeople.map((p) => p.name));
+  activeTrip = DB.createTrip(editingSetupPeople.map((p) => p.name), els.tripNameInput.value);
   showShoppingScreen();
 }
 
@@ -719,6 +739,8 @@ function saveItem() {
 // ---------- Summary / end trip ----------
 
 function openSummaryModal() {
+  summaryTrip = activeTrip;
+  els.summaryTitle.textContent = activeTrip.name ? activeTrip.name : "Trip Summary";
   const { totals, grandTotal } = computeTotals(activeTrip);
   els.summaryContent.innerHTML = "";
 
@@ -737,6 +759,73 @@ function openSummaryModal() {
   els.summaryModal.classList.remove("hidden");
 }
 
+function generateReceiptText(trip) {
+  const { totals, grandTotal } = computeTotals(trip);
+  const peopleById = {};
+  trip.people.forEach((p) => (peopleById[p.id] = p.name));
+
+  const divider = "-".repeat(32);
+  const heading = trip.name ? `COSTCO HELPER — ${trip.name.toUpperCase()}` : "COSTCO HELPER — TRIP SUMMARY";
+  const lines = [heading, formatDate(trip.createdAt), divider, ""];
+
+  trip.items
+    .slice()
+    .reverse()
+    .forEach((item) => {
+      const name = item.name && item.name.trim() ? item.name.trim() : "Item";
+      const who =
+        item.attributedTo && item.attributedTo.length > 0
+          ? item.attributedTo.map((id) => peopleById[id] || "?").join(", ")
+          : "Everyone";
+      lines.push(`${name} — ${formatMoney(item.price)} (${who})`);
+    });
+
+  lines.push("", divider);
+  trip.people.forEach((person) => {
+    lines.push(`${person.name.padEnd(20)} ${formatMoney(totals[person.id] || 0)}`);
+  });
+  lines.push(divider, `${"TRIP TOTAL".padEnd(20)} ${formatMoney(grandTotal)}`);
+
+  return lines.join("\n");
+}
+
+function downloadReceipt(trip) {
+  if (!trip) return;
+  const text = generateReceiptText(trip);
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const dateStr = new Date(trip.createdAt).toISOString().slice(0, 10);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `costco-receipt-${dateStr}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function shareTrip(trip) {
+  if (!trip) return;
+  const text = generateReceiptText(trip);
+  const title = trip.name ? trip.name : `Costco Trip — ${formatDate(trip.createdAt)}`;
+
+  if (navigator.share) {
+    navigator.share({ title, text }).catch(() => {});
+    return;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => alert("Trip copied to clipboard!"))
+      .catch(() => alert(text));
+    return;
+  }
+
+  alert(text);
+}
+
 // ---------- History ----------
 
 function renderHistory() {
@@ -750,6 +839,7 @@ function renderHistory() {
     li.className = "history-card";
     li.innerHTML = `
       <div class="history-card-main">
+        ${trip.name ? `<div class="hname">${escapeHtml(trip.name)}</div>` : ""}
         <div class="hdate">${formatDate(trip.createdAt)} · ${trip.people.length} people · ${trip.items.length} items</div>
         <div class="htotal">${formatMoney(grandTotal)}</div>
       </div>
@@ -774,7 +864,9 @@ function showHistoryDetailScreen(trip) {
   els.historyDetailScreen.classList.remove("hidden");
   els.tripTitle.textContent = "📜 Past Trips";
   els.tripSubtitle.textContent = "";
-  els.historyDetailTitle.textContent = `${formatDate(trip.createdAt)} · ${formatTime(trip.createdAt)}`;
+  els.historyDetailTitle.textContent = trip.name
+    ? trip.name
+    : `${formatDate(trip.createdAt)} · ${formatTime(trip.createdAt)}`;
   renderHistoryDetailTotals();
   renderHistoryDetailItemList();
 }
