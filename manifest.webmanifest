@@ -1,6 +1,6 @@
 {
-  "name": "Costco Helper",
-  "short_name": "Costco Helper",
+  "name": "CartShare",
+  "short_name": "CartShare",
   "description": "Track prices and split costs with friends while shopping.",
   "start_url": "./index.html",
   "scope": "./",

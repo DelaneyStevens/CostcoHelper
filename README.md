@@ -1,4 +1,4 @@
-# Costco Helper 🛒
+# CartShare 🛒
 
 🔗 **Live app:** https://delaneystevens.github.io/CostcoHelper/index.html
 
