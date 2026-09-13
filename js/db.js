@@ -20,9 +20,13 @@ const DB = (() => {
     localStorage.removeItem(ACTIVE_KEY);
   }
 
-  function createTrip(peopleNames) {
+  function createTrip(peopleNames, tripName) {
+    if (getActiveTrip()) {
+      endActiveTrip();
+    }
     const trip = {
       id: uid(),
+      name: tripName ? tripName.trim() : "",
       createdAt: Date.now(),
       people: peopleNames.map((name) => ({ id: uid(), name })),
       items: [],
