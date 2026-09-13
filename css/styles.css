@@ -1,22 +1,40 @@
 :root {
   color-scheme: light dark;
-  --costco-red: #e31837;
-  --costco-blue: #005daa;
-  --bg: #f5f5f7;
-  --card-bg: #ffffff;
-  --text: #1b1b1f;
-  --text-muted: #63666a;
-  --border: #e0e0e2;
-  --radius: 14px;
+  --bg: #C3D38C;
+  --header-bg: #25A384;
+  --header-text: #FFFFFF;
+  --surface: #FFF4D4;
+  --card-bg: #FFFFFF;
+  --item-bg: #FFD0BF;
+  --text: #352920;
+  --text-muted: #4A3B30;
+  --border: #E8CBAE;
+  --radius: 16px;
+  --primary: #EE6645;
+  --primary-text: #FFFFFF;
+  --secondary: #FBA89B;
+  --secondary-text: #352920;
+  --accent-teal: #25A384;
+  --font-display: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #15161a;
-    --card-bg: #1f2024;
-    --text: #f2f2f3;
-    --text-muted: #a2a3a8;
-    --border: #33343a;
+    --bg: #16231B;
+    --header-bg: #163D33;
+    --header-text: #FFFFFF;
+    --surface: #2B2119;
+    --card-bg: #382B22;
+    --item-bg: #40302A;
+    --text: #F5E9DA;
+    --text-muted: #D8C3AE;
+    --border: #4A3B30;
+    --primary: #EE6645;
+    --primary-text: #FFFFFF;
+    --secondary: #6E4A42;
+    --secondary-text: #F5E9DA;
+    --accent-teal: #2FBE9B;
   }
 }
 
@@ -26,13 +44,13 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body);
   padding-bottom: 40px;
 }
 
 .app-header {
-  background: var(--costco-blue);
-  color: white;
+  background: var(--header-bg);
+  color: var(--header-text);
   padding: 14px 16px calc(10px + env(safe-area-inset-top, 0px));
   padding-top: max(14px, env(safe-area-inset-top, 0px));
   position: sticky;
@@ -47,6 +65,8 @@ body {
 }
 
 .header-row h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: 1.15rem;
   margin: 0;
 }
@@ -95,17 +115,21 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .menu-panel button:last-child { border-bottom: none; }
-.menu-panel button.danger { color: var(--costco-red); }
+.menu-panel button.danger { color: var(--primary); }
 
 .hidden { display: none !important; }
 
 main#app {
   padding: 16px;
   max-width: 640px;
-  margin: 0 auto;
+  margin: 12px auto 0;
+  background: var(--surface);
+  border-radius: 20px;
 }
 
 .screen h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
   margin-top: 0;
 }
 
@@ -124,9 +148,18 @@ main#app {
   flex: 1;
 }
 
+.people-input-row button {
+  background: var(--secondary);
+  color: var(--secondary-text);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0 18px;
+  font-weight: 700;
+}
+
 input, select {
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--card-bg);
   color: var(--text);
@@ -170,7 +203,7 @@ button {
 .link-btn {
   background: none;
   border: none;
-  color: var(--costco-blue);
+  color: var(--accent-teal);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -184,9 +217,9 @@ button {
 }
 
 .chip-list.selectable li.selected {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
 }
 
 .attribution-mode-row {
@@ -197,27 +230,30 @@ button {
 
 .mode-btn {
   flex: 1;
+  font-family: var(--font-display);
   padding: 10px 6px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
+  background: var(--secondary);
+  color: var(--secondary-text);
   font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .mode-btn.active {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
 }
 
 .primary-btn {
-  background: var(--costco-red);
-  color: white;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-family: var(--font-display);
   border: none;
   padding: 14px 18px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   font-size: 1.05rem;
   font-weight: 600;
   width: 100%;
@@ -230,22 +266,25 @@ button {
 }
 
 .secondary-btn {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: var(--secondary);
+  border: none;
+  color: var(--secondary-text);
+  font-family: var(--font-display);
+  font-weight: 600;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   font-size: 0.95rem;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .danger-btn {
-  background: var(--costco-red);
-  color: white;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-family: var(--font-display);
   border: none;
   padding: 14px 18px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   font-size: 1rem;
   font-weight: 600;
   width: 100%;
@@ -275,17 +314,19 @@ button {
 }
 
 .total-card.grand {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
 }
 
 .total-card.selected {
-  outline: 3px solid var(--costco-red);
+  outline: 3px solid var(--primary);
   outline-offset: -3px;
 }
 
 .total-card .name {
+  font-family: var(--font-body);
+  font-weight: 700;
   font-size: 0.78rem;
   opacity: 0.8;
   margin-bottom: 4px;
@@ -295,6 +336,8 @@ button {
 }
 
 .total-card .amount {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 1.15rem;
   font-weight: 700;
 }
@@ -313,9 +356,10 @@ button {
 
 .capture-btn {
   flex: 1;
-  background: var(--costco-red);
-  color: white;
-  border-radius: 10px;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-family: var(--font-display);
+  border-radius: var(--radius);
   padding: 16px;
   text-align: center;
   font-weight: 600;
@@ -350,7 +394,7 @@ button {
 }
 
 .item-card {
-  background: var(--card-bg);
+  background: var(--item-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px;
@@ -367,9 +411,9 @@ button {
 .item-thumb {
   width: 56px;
   height: 56px;
-  border-radius: 8px;
+  border-radius: 12px;
   object-fit: cover;
-  background: var(--bg);
+  background: var(--card-bg);
   flex-shrink: 0;
 }
 
@@ -386,6 +430,7 @@ button {
 }
 
 .item-name {
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 0.95rem;
   overflow: hidden;
@@ -399,15 +444,18 @@ button {
 }
 
 .item-attribution-btn {
-  background: none;
+  display: inline-block;
+  background: var(--accent-teal);
   border: none;
-  padding: 0;
-  font-size: 0.8rem;
-  color: var(--costco-blue);
-  text-decoration: underline;
-  text-decoration-style: dotted;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #FFFFFF;
   cursor: pointer;
   text-align: left;
+  margin-top: 4px;
 }
 
 .quick-split-panel {
@@ -431,20 +479,20 @@ button {
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   user-select: none;
 }
 
 .quick-split-row.checked {
-  background: rgba(0, 93, 170, 0.1);
-  border-color: var(--costco-blue);
+  background: rgba(238, 102, 69, 0.12);
+  border-color: var(--primary);
 }
 
 .quick-split-row input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: var(--costco-blue);
+  accent-color: var(--primary);
   flex-shrink: 0;
 }
 
@@ -454,6 +502,8 @@ button {
 }
 
 .item-price {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1.05rem;
   white-space: nowrap;
@@ -479,7 +529,7 @@ button {
 }
 
 .modal {
-  background: var(--card-bg);
+  background: var(--surface);
   color: var(--text);
   width: 100%;
   max-height: 92vh;
@@ -500,8 +550,12 @@ button {
   margin-bottom: 12px;
 }
 
+.modal-header h3 {
+  font-family: var(--font-display);
+}
+
 .modal-header .icon-btn {
-  background: var(--bg);
+  background: var(--card-bg);
   color: var(--text);
 }
 
@@ -509,14 +563,15 @@ button {
   width: 100%;
   max-height: 220px;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: var(--radius);
   margin-bottom: 8px;
-  background: var(--bg);
+  background: var(--card-bg);
 }
 
 .ocr-status {
   font-size: 0.82rem;
-  color: var(--costco-blue);
+  color: var(--accent-teal);
+  font-weight: 700;
   margin: 0 0 14px;
 }
 
@@ -536,18 +591,21 @@ button {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 0 12px;
   background: var(--card-bg);
 }
 
 .price-input-row .currency {
+  font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-muted);
 }
 
 .price-input-row input {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   border: none;
   padding: 12px 0;
   font-size: 1.3rem;
@@ -591,6 +649,10 @@ button {
   border: 1px solid var(--border);
 }
 
+.screen-header h2 {
+  font-family: var(--font-display);
+}
+
 .history-list {
   list-style: none;
   padding: 0;
@@ -613,6 +675,8 @@ button {
 }
 
 .history-card .htotal {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1.1rem;
   margin-top: 4px;
@@ -623,6 +687,7 @@ button {
   justify-content: space-between;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
 }
 
 .summary-person-row:last-child { border-bottom: none; }
@@ -633,6 +698,8 @@ button {
   padding-top: 14px;
   margin-top: 8px;
   border-top: 2px solid var(--border);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1.1rem;
 }
