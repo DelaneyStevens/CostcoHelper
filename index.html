@@ -75,6 +75,18 @@
     <p id="historyEmpty" class="hint hidden">No past trips yet.</p>
   </section>
 
+  <!-- HISTORY TRIP DETAIL SCREEN -->
+  <section id="historyDetailScreen" class="screen hidden">
+    <div class="screen-header">
+      <button id="backFromHistoryDetail" class="icon-btn">←</button>
+      <h2 id="historyDetailTitle">Trip</h2>
+      <button id="deleteHistoryTripBtn" class="icon-btn" aria-label="Delete trip">🗑️</button>
+    </div>
+    <div class="totals-bar" id="historyDetailTotalsBar"></div>
+    <h3 class="section-label">Items (<span id="historyDetailItemCount">0</span>)</h3>
+    <ul id="historyDetailItemList" class="item-list"></ul>
+  </section>
+
 </main>
 
 <!-- ITEM ENTRY MODAL -->
