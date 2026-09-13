@@ -1,4 +1,4 @@
-const CACHE_NAME = "costco-helper-v2";
+const CACHE_NAME = "costco-helper-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -31,10 +31,12 @@ self.addEventListener("fetch", (event) => {
   const isSameOrigin = new URL(event.request.url).origin === self.location.origin;
 
   if (isSameOrigin) {
-    // Network-first for our own app files, so a new deploy shows up immediately
-    // whenever there's a connection; only fall back to the cache when offline.
+    // Network-first for our own app files, bypassing the browser's own HTTP
+    // cache too (not just the Cache Storage above) — otherwise a reload within
+    // the host's Cache-Control freshness window can silently reuse old bytes
+    // even though this handler "tries" to go to the network.
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: "no-store" })
         .then((response) => {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
