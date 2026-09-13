@@ -674,6 +674,11 @@ button {
   margin-top: 18px;
 }
 
+.full-width {
+  width: 100%;
+  margin-top: 16px;
+}
+
 .screen-header {
   display: flex;
   align-items: center;
