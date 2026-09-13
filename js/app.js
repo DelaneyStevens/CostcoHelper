@@ -1,4 +1,4 @@
-// Costco Helper — shopping trip expense tracker with per-person attribution.
+// CartShare — shopping trip expense tracker with per-person attribution.
 
 let activeTrip = null;
 let pendingPhotoDataUrl = null;
@@ -180,7 +180,7 @@ function showSetupScreen() {
   editingSetupPeople = activeTrip ? [...activeTrip.people] : [];
   renderSetupPeopleList();
   els.setupScreen.classList.remove("hidden");
-  els.tripTitle.textContent = "🛒 Costco Helper";
+  els.tripTitle.textContent = "🛒 CartShare";
   els.tripSubtitle.textContent = "";
 }
 

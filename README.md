@@ -1,4 +1,4 @@
-# Costco Helper 🛒
+# CartShare 🛒
 
 A mobile-friendly web app for tracking what everyone spends on a shared
 Costco run. Snap a photo of a price tag as you shop, log the price, and
