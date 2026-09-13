@@ -1,22 +1,52 @@
 :root {
   color-scheme: light dark;
-  --costco-red: #e31837;
-  --costco-blue: #005daa;
-  --bg: #f5f5f7;
+  --danger: #9c4a5a;
+  --danger-text: #ffffff;
+  --bg: #ffeacd;
   --card-bg: #ffffff;
-  --text: #1b1b1f;
-  --text-muted: #63666a;
-  --border: #e0e0e2;
+  --surface-alt: #fff3e0;
+  --text: #6b4636;
+  --text-muted: #93705c;
+  --border: #f0dcc0;
   --radius: 14px;
+
+  --accent: #be6478;
+  --accent-text: #ffffff;
+  --secondary: #f3edbc;
+  --secondary-text: #6b4636;
+
+  --item-card-bg: #c3cba0;
+  --item-card-border: #a8b384;
+  --item-thumb-bg: #fcf2e3;
+
+  --total-default-bg: #f3d8de;
+  --total-default-border: #e4b9c4;
+  --total-default-text: #be6478;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #15161a;
-    --card-bg: #1f2024;
-    --text: #f2f2f3;
-    --text-muted: #a2a3a8;
-    --border: #33343a;
+    --danger: #c97686;
+    --danger-text: #2a1409;
+    --bg: #1d150e;
+    --card-bg: #2a2016;
+    --surface-alt: #33271a;
+    --text: #f5e9d8;
+    --text-muted: #c9ac97;
+    --border: #4a3826;
+
+    --accent: #de8a9b;
+    --accent-text: #2a1409;
+    --secondary: #4a3826;
+    --secondary-text: #f5e9d8;
+
+    --item-card-bg: #3a4030;
+    --item-card-border: #4a5240;
+    --item-thumb-bg: #33271a;
+
+    --total-default-bg: #3a2830;
+    --total-default-border: #4a3038;
+    --total-default-text: #de8a9b;
   }
 }
 
@@ -26,12 +56,12 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   padding-bottom: 40px;
 }
 
 .app-header {
-  background: var(--costco-blue);
+  background: var(--text);
   color: white;
   padding: 14px 16px calc(10px + env(safe-area-inset-top, 0px));
   padding-top: max(14px, env(safe-area-inset-top, 0px));
@@ -47,6 +77,8 @@ body {
 }
 
 .header-row h1 {
+  font-family: "Outfit", sans-serif;
+  font-weight: 700;
   font-size: 1.15rem;
   margin: 0;
 }
@@ -95,7 +127,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .menu-panel button:last-child { border-bottom: none; }
-.menu-panel button.danger { color: var(--costco-red); }
+.menu-panel button.danger { color: var(--danger); }
 
 .hidden { display: none !important; }
 
@@ -106,6 +138,8 @@ main#app {
 }
 
 .screen h2 {
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
   margin-top: 0;
 }
 
@@ -130,12 +164,13 @@ input, select {
   border: 1px solid var(--border);
   background: var(--card-bg);
   color: var(--text);
+  font-family: "Nunito", sans-serif;
   font-size: 1rem;
   width: 100%;
 }
 
 button {
-  font-family: inherit;
+  font-family: "Outfit", sans-serif;
 }
 
 .chip-list {
@@ -152,6 +187,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 8px 14px;
+  font-family: "Nunito", sans-serif;
   font-size: 0.9rem;
   display: flex;
   align-items: center;
@@ -170,7 +206,8 @@ button {
 .link-btn {
   background: none;
   border: none;
-  color: var(--costco-blue);
+  color: var(--accent);
+  font-family: "Outfit", sans-serif;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -184,9 +221,9 @@ button {
 }
 
 .chip-list.selectable li.selected {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
 }
 
 .attribution-mode-row {
@@ -200,24 +237,27 @@ button {
   padding: 10px 6px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font-family: "Nunito", sans-serif;
+  font-weight: 800;
   font-size: 0.82rem;
   cursor: pointer;
 }
 
 .mode-btn.active {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
 }
 
 .primary-btn {
-  background: var(--costco-red);
-  color: white;
+  background: var(--accent);
+  color: var(--accent-text);
   border: none;
   padding: 14px 18px;
-  border-radius: 10px;
+  border-radius: 12px;
+  font-family: "Outfit", sans-serif;
   font-size: 1.05rem;
   font-weight: 600;
   width: 100%;
@@ -230,22 +270,25 @@ button {
 }
 
 .secondary-btn {
-  background: var(--card-bg);
+  background: var(--secondary);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: var(--secondary-text);
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: 12px;
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .danger-btn {
-  background: var(--costco-red);
-  color: white;
+  background: var(--danger);
+  color: var(--danger-text);
   border: none;
   padding: 14px 18px;
-  border-radius: 10px;
+  border-radius: 12px;
+  font-family: "Outfit", sans-serif;
   font-size: 1rem;
   font-weight: 600;
   width: 100%;
@@ -262,8 +305,8 @@ button {
 }
 
 .total-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
+  background: var(--total-default-bg);
+  border: 1px solid var(--total-default-border);
   border-radius: var(--radius);
   padding: 12px 16px;
   min-width: 110px;
@@ -275,28 +318,41 @@ button {
 }
 
 .total-card.grand {
-  background: var(--costco-blue);
-  color: white;
-  border-color: var(--costco-blue);
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
 }
 
 .total-card.selected {
-  outline: 3px solid var(--costco-red);
+  outline: 3px solid var(--accent);
   outline-offset: -3px;
 }
 
 .total-card .name {
+  font-family: "Nunito", sans-serif;
   font-size: 0.78rem;
-  opacity: 0.8;
+  color: var(--total-default-text);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.total-card.grand .name {
+  color: var(--accent-text);
+  opacity: 0.9;
+}
+
 .total-card .amount {
+  font-family: "Outfit", sans-serif;
+  font-variant-numeric: tabular-nums;
   font-size: 1.15rem;
   font-weight: 700;
+  color: var(--total-default-text);
+}
+
+.total-card.grand .amount {
+  color: var(--accent-text);
 }
 
 .add-item-bar {
@@ -313,11 +369,12 @@ button {
 
 .capture-btn {
   flex: 1;
-  background: var(--costco-red);
-  color: white;
-  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 12px;
   padding: 16px;
   text-align: center;
+  font-family: "Outfit", sans-serif;
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
@@ -327,8 +384,10 @@ button {
 }
 
 .section-label {
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
   font-size: 0.95rem;
-  color: var(--text-muted);
+  color: var(--text);
   margin: 0;
 }
 
@@ -350,8 +409,8 @@ button {
 }
 
 .item-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
+  background: var(--item-card-bg);
+  border: 1px solid var(--item-card-border);
   border-radius: var(--radius);
   padding: 10px;
   display: flex;
@@ -369,7 +428,7 @@ button {
   height: 56px;
   border-radius: 8px;
   object-fit: cover;
-  background: var(--bg);
+  background: var(--item-thumb-bg);
   flex-shrink: 0;
 }
 
@@ -386,14 +445,17 @@ button {
 }
 
 .item-name {
+  font-family: "Outfit", sans-serif;
   font-weight: 600;
   font-size: 0.95rem;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .item-attribution {
+  font-family: "Nunito", sans-serif;
   font-size: 0.8rem;
   color: var(--text-muted);
 }
@@ -402,8 +464,9 @@ button {
   background: none;
   border: none;
   padding: 0;
+  font-family: "Nunito", sans-serif;
   font-size: 0.8rem;
-  color: var(--costco-blue);
+  color: var(--text);
   text-decoration: underline;
   text-decoration-style: dotted;
   cursor: pointer;
@@ -413,15 +476,17 @@ button {
 .quick-split-panel {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--item-card-border);
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
 .quick-split-hint {
+  font-family: "Nunito", sans-serif;
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text);
+  opacity: 0.8;
   margin: 0 0 2px;
 }
 
@@ -430,32 +495,42 @@ button {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--item-card-border);
   border-radius: 8px;
+  background: var(--card-bg);
   cursor: pointer;
   user-select: none;
 }
 
 .quick-split-row.checked {
-  background: rgba(0, 93, 170, 0.1);
-  border-color: var(--costco-blue);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.quick-split-row.checked .person-name {
+  color: var(--accent-text);
 }
 
 .quick-split-row input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: var(--costco-blue);
+  accent-color: var(--accent);
   flex-shrink: 0;
 }
 
 .quick-split-row .person-name {
+  font-family: "Nunito", sans-serif;
   font-size: 0.88rem;
+  color: var(--text);
   flex: 1;
 }
 
 .item-price {
+  font-family: "Outfit", sans-serif;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1.05rem;
+  color: var(--text);
   white-space: nowrap;
 }
 
@@ -463,7 +538,8 @@ button {
 .item-edit {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--text);
+  opacity: 0.7;
   font-size: 1.1rem;
   cursor: pointer;
   padding: 4px;
@@ -500,6 +576,11 @@ button {
   margin-bottom: 12px;
 }
 
+.modal-header h3 {
+  font-family: "Outfit", sans-serif;
+  font-weight: 700;
+}
+
 .modal-header .icon-btn {
   background: var(--bg);
   color: var(--text);
@@ -515,8 +596,9 @@ button {
 }
 
 .ocr-status {
+  font-family: "Nunito", sans-serif;
   font-size: 0.82rem;
-  color: var(--costco-blue);
+  color: var(--accent);
   margin: 0 0 14px;
 }
 
@@ -526,6 +608,7 @@ button {
 
 .field-label {
   display: block;
+  font-family: "Nunito", sans-serif;
   font-size: 0.85rem;
   color: var(--text-muted);
   margin: 12px 0 6px;
@@ -542,6 +625,7 @@ button {
 }
 
 .price-input-row .currency {
+  font-family: "Outfit", sans-serif;
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -550,6 +634,8 @@ button {
 .price-input-row input {
   border: none;
   padding: 12px 0;
+  font-family: "Outfit", sans-serif;
+  font-variant-numeric: tabular-nums;
   font-size: 1.3rem;
   font-weight: 600;
 }
@@ -559,6 +645,7 @@ button {
   align-items: center;
   gap: 8px;
   margin: 12px 0 4px;
+  font-family: "Nunito", sans-serif;
   font-size: 0.85rem;
   color: var(--text-muted);
   cursor: pointer;
@@ -570,6 +657,7 @@ button {
 }
 
 .item-price-note {
+  font-family: "Nunito", sans-serif;
   font-size: 0.72rem;
   color: var(--text-muted);
 }
@@ -608,11 +696,14 @@ button {
 }
 
 .history-card .hdate {
+  font-family: "Nunito", sans-serif;
   font-size: 0.8rem;
   color: var(--text-muted);
 }
 
 .history-card .htotal {
+  font-family: "Outfit", sans-serif;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1.1rem;
   margin-top: 4px;
@@ -623,6 +714,7 @@ button {
   justify-content: space-between;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
+  font-family: "Nunito", sans-serif;
 }
 
 .summary-person-row:last-child { border-bottom: none; }
@@ -633,6 +725,8 @@ button {
   padding-top: 14px;
   margin-top: 8px;
   border-top: 2px solid var(--border);
+  font-family: "Outfit", sans-serif;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1.1rem;
 }
