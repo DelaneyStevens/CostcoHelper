@@ -780,3 +780,33 @@ button {
   font-weight: 700;
   font-size: 1.1rem;
 }
+
+.settlement-heading {
+  font-family: "Outfit", sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin: 18px 0 8px;
+}
+
+.settlement-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: var(--total-default-bg);
+  border: 1px solid var(--total-default-border);
+  border-radius: 10px;
+  font-family: "Nunito", sans-serif;
+  color: var(--total-default-text);
+}
+
+.settlement-row span:last-child {
+  font-family: "Outfit", sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.settlement-empty,
+.settlement-note {
+  margin: 0 0 4px;
+}

@@ -12,6 +12,8 @@ let filterPersonId = null;
 let viewingHistoryTrip = null;
 let historyDetailFilterPersonId = null;
 let summaryTrip = null;
+let selectedPaidById = null;
+let lastPaidById = null; // remembers the last payer chosen, to default the next item
 
 const VAT_RATE = 0.2;
 
@@ -71,6 +73,7 @@ function cacheEls() {
   els.historyDetailTitle = document.getElementById("historyDetailTitle");
   els.deleteHistoryTripBtn = document.getElementById("deleteHistoryTripBtn");
   els.historyDetailTotalsBar = document.getElementById("historyDetailTotalsBar");
+  els.historyDetailSettlement = document.getElementById("historyDetailSettlement");
   els.historyDetailItemCount = document.getElementById("historyDetailItemCount");
   els.historyDetailItemList = document.getElementById("historyDetailItemList");
   els.shareHistoryTripBtn = document.getElementById("shareHistoryTripBtn");
@@ -89,6 +92,7 @@ function cacheEls() {
   els.itemVatPriceInput = document.getElementById("itemVatPriceInput");
   els.attributionPeopleList = document.getElementById("attributionPeopleList");
   els.modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
+  els.paidByList = document.getElementById("paidByList");
   els.saveItemBtn = document.getElementById("saveItemBtn");
 
   els.editTripModal = document.getElementById("editTripModal");
@@ -103,6 +107,7 @@ function cacheEls() {
   els.summaryTitle = document.getElementById("summaryTitle");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
   els.summaryContent = document.getElementById("summaryContent");
+  els.summarySettlement = document.getElementById("summarySettlement");
   els.shareSummaryBtn = document.getElementById("shareSummaryBtn");
   els.downloadReceiptBtn = document.getElementById("downloadReceiptBtn");
   els.confirmEndTripBtn = document.getElementById("confirmEndTripBtn");
@@ -337,13 +342,15 @@ function startTrip() {
 
 // ---------- Shopping screen: totals & items ----------
 
-function computeTotals(trip) {
-  // Split in integer cents (with the odd cent going to the first targets)
-  // rather than floating-point dollars, so per-person shares always add up
-  // exactly to the item price — e.g. $10 split 3 ways is $3.34/$3.33/$3.33,
-  // not three $3.33s that visibly fall a cent short of the $10.00 total.
-  const totalsCents = {};
-  trip.people.forEach((p) => (totalsCents[p.id] = 0));
+// Split in integer cents (with the odd cent going to the first targets)
+// rather than floating-point dollars, so per-person shares always add up
+// exactly to the item price — e.g. $10 split 3 ways is $3.34/$3.33/$3.33,
+// not three $3.33s that visibly fall a cent short of the $10.00 total.
+// Shared by computeTotals (for display) and computeSettlement (which also
+// needs exact cents to match "owed" against "paid" with no rounding drift).
+function computeOwedCents(trip) {
+  const owedCents = {};
+  trip.people.forEach((p) => (owedCents[p.id] = 0));
   let grandTotalCents = 0;
 
   trip.items.forEach((item) => {
@@ -353,22 +360,121 @@ function computeTotals(trip) {
     const baseShare = Math.floor(priceCents / targets.length);
     let remainder = priceCents - baseShare * targets.length;
     targets.forEach((personId) => {
-      if (totalsCents[personId] === undefined) totalsCents[personId] = 0;
+      if (owedCents[personId] === undefined) owedCents[personId] = 0;
       let share = baseShare;
       if (remainder > 0) {
         share += 1;
         remainder -= 1;
       }
-      totalsCents[personId] += share;
+      owedCents[personId] += share;
     });
   });
 
+  return { owedCents, grandTotalCents };
+}
+
+function computeTotals(trip) {
+  const { owedCents, grandTotalCents } = computeOwedCents(trip);
   const totals = {};
-  Object.keys(totalsCents).forEach((id) => {
-    totals[id] = totalsCents[id] / 100;
+  Object.keys(owedCents).forEach((id) => {
+    totals[id] = owedCents[id] / 100;
+  });
+  return { totals, grandTotal: grandTotalCents / 100 };
+}
+
+// Nets what each person paid against what they owe, then greedily matches
+// the biggest creditor with the biggest debtor to produce a short list of
+// "who pays whom" transactions — the standard settle-up approach (same idea
+// Splitwise and similar apps use), rather than everyone paying everyone a
+// little bit.
+function computeSettlement(trip) {
+  const { owedCents } = computeOwedCents(trip);
+
+  const paidCents = {};
+  trip.people.forEach((p) => (paidCents[p.id] = 0));
+  let unassignedCents = 0;
+
+  trip.items.forEach((item) => {
+    const priceCents = Math.round((Number(item.price) || 0) * 100);
+    if (item.paidBy && paidCents[item.paidBy] !== undefined) {
+      paidCents[item.paidBy] += priceCents;
+    } else {
+      unassignedCents += priceCents;
+    }
   });
 
-  return { totals, grandTotal: grandTotalCents / 100 };
+  const balanceCents = {};
+  trip.people.forEach((p) => {
+    balanceCents[p.id] = (paidCents[p.id] || 0) - (owedCents[p.id] || 0);
+  });
+
+  return { transactions: simplifyDebts(balanceCents, trip.people), unassignedCents };
+}
+
+function simplifyDebts(balanceCents, people) {
+  const creditors = [];
+  const debtors = [];
+  people.forEach((p) => {
+    const amount = balanceCents[p.id] || 0;
+    if (amount > 0) creditors.push({ id: p.id, amount });
+    else if (amount < 0) debtors.push({ id: p.id, amount: -amount });
+  });
+  creditors.sort((a, b) => b.amount - a.amount);
+  debtors.sort((a, b) => b.amount - a.amount);
+
+  const transactions = [];
+  let ci = 0;
+  let di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const creditor = creditors[ci];
+    const debtor = debtors[di];
+    const amount = Math.min(creditor.amount, debtor.amount);
+    if (amount > 0) {
+      transactions.push({ fromId: debtor.id, toId: creditor.id, amountCents: amount });
+    }
+    creditor.amount -= amount;
+    debtor.amount -= amount;
+    if (creditor.amount === 0) ci++;
+    if (debtor.amount === 0) di++;
+  }
+  return transactions;
+}
+
+// Shared by the Trip Summary modal and the past-trip detail screen.
+function renderSettlement(container, trip) {
+  const { transactions, unassignedCents } = computeSettlement(trip);
+  const peopleById = {};
+  trip.people.forEach((p) => (peopleById[p.id] = p.name));
+
+  container.innerHTML = "";
+
+  const heading = document.createElement("h4");
+  heading.className = "settlement-heading";
+  heading.textContent = "Settle Up";
+  container.appendChild(heading);
+
+  if (transactions.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint settlement-empty";
+    empty.textContent =
+      unassignedCents > 0 ? "Log who paid for each item to see who owes who." : "Everyone's all settled up! 🎉";
+    container.appendChild(empty);
+    return;
+  }
+
+  transactions.forEach((t) => {
+    const row = document.createElement("div");
+    row.className = "settlement-row";
+    row.innerHTML = `<span>${escapeHtml(peopleById[t.fromId] || "?")} owes ${escapeHtml(peopleById[t.toId] || "?")}</span><span>${formatMoney(t.amountCents / 100)}</span>`;
+    container.appendChild(row);
+  });
+
+  if (unassignedCents > 0) {
+    const note = document.createElement("p");
+    note.className = "hint settlement-note";
+    note.textContent = `${formatMoney(unassignedCents / 100)} worth of items have no payer set, so they're left out of this.`;
+    container.appendChild(note);
+  }
 }
 
 // Shared by the shopping screen and the past-trip detail screen, which both
@@ -439,7 +545,7 @@ function renderItemList() {
     const li = document.createElement("li");
     li.className = "item-card";
 
-    const attributionLabel = describeAttribution(item);
+    const attributionLabel = describeAttribution(item) + paidByLabel(activeTrip, item);
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
       : "";
@@ -573,6 +679,13 @@ function describeAttributionFor(trip, targets) {
 
 function describeAttribution(item) {
   return describeAttributionFor(activeTrip, itemTargets(item));
+}
+
+// Shared by the shopping screen and the past-trip detail screen.
+function paidByLabel(trip, item) {
+  if (!item.paidBy) return "";
+  const payer = trip.people.find((p) => p.id === item.paidBy);
+  return payer ? ` · Paid by ${payer.name}` : "";
 }
 
 // ---------- Edit Trip modal ----------
@@ -857,6 +970,15 @@ function openItemModal(photoDataUrl, existingItem) {
   updateModeButtons();
   renderAttributionPeopleList();
 
+  if (existingItem) {
+    selectedPaidById = existingItem.paidBy || null;
+  } else {
+    // Default to whoever paid last time, since the same person usually pays
+    // for the whole trip — but only if they're still on the trip.
+    selectedPaidById = lastPaidById && activeTrip.people.some((p) => p.id === lastPaidById) ? lastPaidById : null;
+  }
+  renderPaidByList();
+
   els.saveItemBtn.textContent = existingItem ? "Save Changes" : "Save Item";
 
   els.itemModal.classList.remove("hidden");
@@ -914,6 +1036,24 @@ function renderAttributionPeopleList() {
   });
 }
 
+function renderPaidByList() {
+  els.paidByList.innerHTML = "";
+
+  activeTrip.people.forEach((person) => {
+    const li = document.createElement("li");
+    li.textContent = person.name;
+    li.dataset.personId = person.id;
+    if (selectedPaidById === person.id) li.classList.add("selected");
+
+    li.addEventListener("click", () => {
+      selectedPaidById = selectedPaidById === person.id ? null : person.id;
+      renderPaidByList();
+    });
+
+    els.paidByList.appendChild(li);
+  });
+}
+
 function saveItem() {
   const tagPrice = parseFloat(els.itemPriceInput.value);
   if (isNaN(tagPrice) || tagPrice < 0) {
@@ -957,6 +1097,7 @@ function saveItem() {
     priceExclVat,
     photo: pendingPhotoDataUrl,
     attributedTo,
+    paidBy: selectedPaidById,
   };
 
   const result = editingItemId ? DB.updateItem(editingItemId, fields) : DB.addItem(fields);
@@ -964,6 +1105,8 @@ function saveItem() {
     alertStorageFailure();
     return; // keep the modal open so the user's input isn't lost
   }
+
+  if (selectedPaidById) lastPaidById = selectedPaidById;
 
   activeTrip = DB.getActiveTrip();
   closeItemModal();
@@ -991,6 +1134,8 @@ function openSummaryModal() {
   totalRow.innerHTML = `<span>Trip Total</span><span>${formatMoney(grandTotal)}</span>`;
   els.summaryContent.appendChild(totalRow);
 
+  renderSettlement(els.summarySettlement, activeTrip);
+
   els.summaryModal.classList.remove("hidden");
 }
 
@@ -1012,7 +1157,8 @@ function generateReceiptText(trip) {
         item.attributedTo && item.attributedTo.length > 0
           ? item.attributedTo.map((id) => peopleById[id] || "?").join(", ")
           : "Everyone";
-      lines.push(`${name} — ${formatMoney(item.price)} (${who})`);
+      const paidNote = item.paidBy && peopleById[item.paidBy] ? `, paid by ${peopleById[item.paidBy]}` : "";
+      lines.push(`${name} — ${formatMoney(item.price)} (${who}${paidNote})`);
     });
 
   lines.push("", divider);
@@ -1020,6 +1166,17 @@ function generateReceiptText(trip) {
     lines.push(`${person.name.padEnd(20)} ${formatMoney(totals[person.id] || 0)}`);
   });
   lines.push(divider, `${"TRIP TOTAL".padEnd(20)} ${formatMoney(grandTotal)}`);
+
+  const { transactions, unassignedCents } = computeSettlement(trip);
+  if (transactions.length > 0) {
+    lines.push("", divider, "SETTLE UP");
+    transactions.forEach((t) => {
+      lines.push(`${peopleById[t.fromId] || "?"} owes ${peopleById[t.toId] || "?"} ${formatMoney(t.amountCents / 100)}`);
+    });
+    if (unassignedCents > 0) {
+      lines.push(`(${formatMoney(unassignedCents / 100)} has no payer logged, not included above)`);
+    }
+  }
 
   return lines.join("\n");
 }
@@ -1109,6 +1266,7 @@ function showHistoryDetailScreen(trip) {
     : `${formatDate(trip.createdAt)} · ${formatTime(trip.createdAt)}`;
   renderHistoryDetailTotals();
   renderHistoryDetailItemList();
+  renderSettlement(els.historyDetailSettlement, trip);
 }
 
 function historyDetailItemTargets(item) {
@@ -1150,7 +1308,7 @@ function renderHistoryDetailItemList() {
     const li = document.createElement("li");
     li.className = "item-card";
 
-    const attributionLabel = describeAttributionFor(trip, historyDetailItemTargets(item));
+    const attributionLabel = describeAttributionFor(trip, historyDetailItemTargets(item)) + paidByLabel(trip, item);
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
       : "";
