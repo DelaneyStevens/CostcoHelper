@@ -184,7 +184,11 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" integrity="sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F" crossorigin="anonymous"></script>
+<!-- No integrity hash: this session's sandbox can't reach cdn.jsdelivr.net to
+     verify one against what's actually served, and a wrong hash makes the
+     browser silently refuse to run the whole script with zero visible error
+     (exactly what broke OCR before). Version is still pinned exactly. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script src="js/db.js"></script>
 <script src="js/app.js"></script>
 </body>
