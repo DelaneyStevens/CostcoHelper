@@ -35,7 +35,10 @@
 
   <!-- SETUP SCREEN -->
   <section id="setupScreen" class="screen">
-    <h2>Start a shopping trip</h2>
+    <div class="screen-header">
+      <button id="backFromSetupBtn" class="icon-btn hidden" aria-label="Cancel">←</button>
+      <h2>Start a shopping trip</h2>
+    </div>
     <label class="field-label" for="tripNameInput">Trip name (optional)</label>
     <input id="tripNameInput" type="text" placeholder="e.g. Weekly Costco Run" maxlength="40" />
     <p class="hint">Add everyone who's shopping together. You can add more people later.</p>
