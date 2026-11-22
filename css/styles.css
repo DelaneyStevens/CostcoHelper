@@ -200,7 +200,8 @@ button {
   gap: 6px;
 }
 
-.chip-list .chip-remove {
+.chip-list .chip-remove,
+.chip-list .chip-edit {
   background: none;
   border: none;
   color: var(--text-muted);

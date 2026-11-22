@@ -26,6 +26,7 @@
 
 <nav id="menuPanel" class="menu-panel hidden">
   <button id="newTripBtn">🆕 New Trip</button>
+  <button id="editTripBtn">✏️ Edit Trip</button>
   <button id="historyBtn">📜 Past Trips</button>
   <button id="shareTripBtn">🔗 Share Trip</button>
   <button id="endTripBtn" class="danger">✅ End Trip</button>
@@ -142,6 +143,28 @@
     <ul id="attributionPeopleList" class="chip-list selectable"></ul>
 
     <button id="saveItemBtn" class="primary-btn">Save Item</button>
+  </div>
+</div>
+
+<!-- EDIT TRIP MODAL -->
+<div id="editTripModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Trip</h3>
+      <button id="closeEditTripBtn" class="icon-btn">✕</button>
+    </div>
+
+    <label class="field-label" for="editTripNameInput">Trip name</label>
+    <input id="editTripNameInput" type="text" placeholder="e.g. Weekly Costco Run" maxlength="40" />
+
+    <label class="field-label">Shoppers</label>
+    <ul id="editPeopleList" class="chip-list"></ul>
+    <div class="people-input-row">
+      <input id="editPersonNameInput" type="text" placeholder="Friend's name" maxlength="30" />
+      <button id="editAddPersonBtn">Add</button>
+    </div>
+
+    <button id="saveTripEditsBtn" class="primary-btn">Done</button>
   </div>
 </div>
 

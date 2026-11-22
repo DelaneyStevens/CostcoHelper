@@ -55,6 +55,36 @@ const DB = (() => {
     return saveActiveTrip(trip) ? trip : null;
   }
 
+  function renameTrip(newName) {
+    const trip = getActiveTrip();
+    if (!trip) return null;
+    trip.name = newName ? newName.trim() : "";
+    return saveActiveTrip(trip) ? trip : null;
+  }
+
+  function addPersonToActiveTrip(name) {
+    const trip = getActiveTrip();
+    if (!trip) return null;
+    trip.people.push({ id: uid(), name });
+    return saveActiveTrip(trip) ? trip : null;
+  }
+
+  function renamePerson(personId, newName) {
+    const trip = getActiveTrip();
+    if (!trip) return null;
+    const person = trip.people.find((p) => p.id === personId);
+    if (!person) return trip;
+    person.name = newName;
+    return saveActiveTrip(trip) ? trip : null;
+  }
+
+  function removePersonFromActiveTrip(personId) {
+    const trip = getActiveTrip();
+    if (!trip) return null;
+    trip.people = trip.people.filter((p) => p.id !== personId);
+    return saveActiveTrip(trip) ? trip : null;
+  }
+
   function addItem(item) {
     const trip = getActiveTrip();
     if (!trip) return null;
@@ -106,6 +136,10 @@ const DB = (() => {
     uid,
     getActiveTrip,
     createTrip,
+    renameTrip,
+    addPersonToActiveTrip,
+    renamePerson,
+    removePersonFromActiveTrip,
     addItem,
     updateItem,
     deleteItem,
