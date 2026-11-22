@@ -54,6 +54,7 @@ function cacheEls() {
 
   els.shoppingScreen = document.getElementById("shoppingScreen");
   els.totalsBar = document.getElementById("totalsBar");
+  els.shoppingSettlement = document.getElementById("shoppingSettlement");
   els.cameraInput = document.getElementById("cameraInput");
   els.manualAddBtn = document.getElementById("manualAddBtn");
   els.itemList = document.getElementById("itemList");
@@ -302,12 +303,14 @@ function showShoppingScreen() {
 }
 
 // Re-reads activeTrip's name/people into the header and re-renders the
-// totals bar + item list — used both when first showing the shopping
-// screen and after editing the trip's name or shoppers from the menu.
+// totals bar + settle-up + item list — used both when first showing the
+// shopping screen and after editing the trip's name, shoppers, items, or
+// payments from the menu.
 function refreshShoppingScreen() {
   els.tripTitle.textContent = activeTrip.name ? `🛒 ${activeTrip.name}` : "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
   renderTotals();
+  renderSettlement(els.shoppingSettlement, activeTrip);
   renderItemList();
 }
 
@@ -604,6 +607,7 @@ function renderItemList() {
         }
         activeTrip = DB.getActiveTrip();
         renderTotals();
+        renderSettlement(els.shoppingSettlement, activeTrip);
         renderItemList();
       }
     });
@@ -665,6 +669,7 @@ function buildQuickSplitPanel(item) {
       }
       activeTrip = DB.getActiveTrip();
       renderTotals();
+      renderSettlement(els.shoppingSettlement, activeTrip);
       renderItemList();
     });
 
@@ -917,6 +922,7 @@ function handleAddPayment() {
   els.paymentNoteInput.value = "";
   renderPaymentPayerList();
   renderPaymentsList();
+  renderSettlement(els.shoppingSettlement, activeTrip);
 }
 
 function handleDeletePayment(paymentId) {
@@ -928,6 +934,7 @@ function handleDeletePayment(paymentId) {
   }
   activeTrip = result;
   renderPaymentsList();
+  renderSettlement(els.shoppingSettlement, activeTrip);
 }
 
 // ---------- Photo capture ----------
@@ -1220,6 +1227,7 @@ function saveItem() {
   activeTrip = DB.getActiveTrip();
   closeItemModal();
   renderTotals();
+  renderSettlement(els.shoppingSettlement, activeTrip);
   renderItemList();
 }
 
