@@ -86,6 +86,7 @@ function cacheEls() {
   els.itemNameInput = document.getElementById("itemNameInput");
   els.itemPriceLabel = document.getElementById("itemPriceLabel");
   els.itemPriceInput = document.getElementById("itemPriceInput");
+  els.discountToggle = document.getElementById("discountToggle");
   els.vatToggle = document.getElementById("vatToggle");
   els.vatPriceRow = document.getElementById("vatPriceRow");
   els.itemVatPriceInput = document.getElementById("itemVatPriceInput");
@@ -574,14 +575,15 @@ function renderItemList() {
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
       : "";
+    const discountNote = item.price < 0 ? `<div class="item-price-note">🏷️ Discount</div>` : "";
 
     li.innerHTML = `
       <div class="item-card-row">
         <div class="item-thumb-slot"></div>
         <div class="item-info">
-          <div class="item-name">${escapeHtml(item.name || "Item")}</div>
+          <div class="item-name">${escapeHtml(item.name || defaultItemName(item))}</div>
           <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)}</button>
-          ${vatNote}
+          ${vatNote}${discountNote}
         </div>
         <div class="item-price">${formatMoney(item.price)}</div>
         <button class="item-edit" aria-label="Edit">✏️</button>
@@ -1063,8 +1065,11 @@ function openItemModal(photoDataUrl, existingItem) {
   els.itemNameInput.value = existingItem ? existingItem.name || "" : "";
 
   const vatIncluded = !!(existingItem && existingItem.vatIncluded);
-  els.itemPriceInput.value = existingItem ? (vatIncluded ? existingItem.priceExclVat : existingItem.price).toFixed(2) : "";
-  els.itemVatPriceInput.value = existingItem && vatIncluded ? existingItem.price.toFixed(2) : "";
+  // Stored as negative for a discount, but the field always shows the
+  // positive amount the user actually typed — the checkbox carries the sign.
+  els.itemPriceInput.value = existingItem ? Math.abs(vatIncluded ? existingItem.priceExclVat : existingItem.price).toFixed(2) : "";
+  els.itemVatPriceInput.value = existingItem && vatIncluded ? Math.abs(existingItem.price).toFixed(2) : "";
+  els.discountToggle.checked = !!(existingItem && existingItem.price < 0);
   els.vatToggle.checked = vatIncluded;
   els.vatPriceRow.classList.toggle("hidden", !vatIncluded);
   els.itemPriceLabel.textContent = vatIncluded ? "Price shown on tag (excl. VAT)" : "Price";
@@ -1179,6 +1184,11 @@ function saveItem() {
     priceExclVat = tagPrice;
   }
 
+  if (els.discountToggle.checked) {
+    price = -price;
+    if (priceExclVat !== null) priceExclVat = -priceExclVat;
+  }
+
   let attributedTo;
   if (attributionMode === "everyone") {
     attributedTo = activeTrip.people.map((p) => p.id);
@@ -1251,7 +1261,7 @@ function generateReceiptText(trip) {
     .slice()
     .reverse()
     .forEach((item) => {
-      const name = item.name && item.name.trim() ? item.name.trim() : "Item";
+      const name = item.name && item.name.trim() ? item.name.trim() : defaultItemName(item);
       const who =
         item.attributedTo && item.attributedTo.length > 0
           ? item.attributedTo.map((id) => peopleById[id] || "?").join(", ")
@@ -1421,14 +1431,15 @@ function renderHistoryDetailItemList() {
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
       : "";
+    const discountNote = item.price < 0 ? `<div class="item-price-note">🏷️ Discount</div>` : "";
 
     li.innerHTML = `
       <div class="item-card-row">
         <div class="item-thumb-slot"></div>
         <div class="item-info">
-          <div class="item-name">${escapeHtml(item.name || "Item")}</div>
+          <div class="item-name">${escapeHtml(item.name || defaultItemName(item))}</div>
           <div class="item-attribution">${escapeHtml(attributionLabel)}</div>
-          ${vatNote}
+          ${vatNote}${discountNote}
         </div>
         <div class="item-price">${formatMoney(item.price)}</div>
       </div>
@@ -1442,7 +1453,13 @@ function renderHistoryDetailItemList() {
 // ---------- Utils ----------
 
 function formatMoney(n) {
-  return `$${(Number(n) || 0).toFixed(2)}`;
+  const num = Number(n) || 0;
+  const sign = num < 0 ? "-" : "";
+  return `${sign}$${Math.abs(num).toFixed(2)}`;
+}
+
+function defaultItemName(item) {
+  return item.price < 0 ? "Discount" : "Item";
 }
 
 function formatTime(ts) {
