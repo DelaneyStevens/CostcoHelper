@@ -43,6 +43,7 @@ function cacheEls() {
   els.endTripBtn = document.getElementById("endTripBtn");
 
   els.setupScreen = document.getElementById("setupScreen");
+  els.backFromSetupBtn = document.getElementById("backFromSetupBtn");
   els.tripNameInput = document.getElementById("tripNameInput");
   els.personNameInput = document.getElementById("personNameInput");
   els.addPersonBtn = document.getElementById("addPersonBtn");
@@ -108,10 +109,14 @@ function bindEvents() {
 
   els.newTripBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (activeTrip && !confirm("Start a new trip? Your current trip will be saved to Past Trips.")) {
+    if (activeTrip && !confirm("Start a new trip? This one will move to Past Trips once you start the new one.")) {
       return;
     }
     showSetupScreen();
+  });
+
+  els.backFromSetupBtn.addEventListener("click", () => {
+    if (activeTrip) showShoppingScreen();
   });
 
   els.historyBtn.addEventListener("click", () => {
@@ -227,6 +232,7 @@ function showSetupScreen() {
   editingSetupPeople = activeTrip ? [...activeTrip.people] : [];
   els.tripNameInput.value = "";
   renderSetupPeopleList();
+  els.backFromSetupBtn.classList.toggle("hidden", !activeTrip);
   els.setupScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 CartShare";
   els.tripSubtitle.textContent = "";
@@ -522,15 +528,35 @@ function describeAttribution(item) {
 function handlePhotoCapture(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
-  resizeImageToDataUrl(file, 500, (thumbDataUrl) => {
-    pendingPhotoDataUrl = thumbDataUrl;
-    openItemModal(thumbDataUrl);
-    els.cameraInput.value = "";
-  });
+  resizeImageToDataUrl(
+    file,
+    500,
+    (thumbDataUrl) => {
+      pendingPhotoDataUrl = thumbDataUrl;
+      openItemModal(thumbDataUrl);
+      els.cameraInput.value = "";
+    },
+    () => {
+      els.cameraInput.value = "";
+      alert("Couldn't read that photo — try again, or add the item without a photo.");
+      openItemModal(null);
+    }
+  );
   // A larger, higher-detail version (not stored) purely for reading the digits.
-  resizeImageToDataUrl(file, 1000, (ocrDataUrl) => {
-    runOcrOnPhoto(ocrDataUrl);
-  });
+  resizeImageToDataUrl(
+    file,
+    1000,
+    (ocrDataUrl) => runOcrOnPhoto(ocrDataUrl),
+    () => {
+      // The 500px thumbnail above already alerted and opened the modal without
+      // a photo; just make sure OCR's own status line doesn't look like it's
+      // still working if the modal is still around.
+      if (els.itemModal.classList.contains("hidden")) return;
+      els.ocrStatus.textContent = "Couldn't read a price automatically — enter it below.";
+      els.ocrStatus.classList.remove("hidden");
+      els.ocrStatus.classList.add("ocr-error");
+    }
+  );
 }
 
 function recomputeVatPrice() {
@@ -595,10 +621,12 @@ function extractPricesFromText(text) {
   return Array.from(new Set(values));
 }
 
-function resizeImageToDataUrl(file, maxDim, callback) {
+function resizeImageToDataUrl(file, maxDim, onSuccess, onError) {
   const img = new Image();
   const reader = new FileReader();
+  reader.onerror = () => onError && onError();
   reader.onload = (e) => {
+    img.onerror = () => onError && onError();
     img.onload = () => {
       let { width, height } = img;
       if (width > height && width > maxDim) {
@@ -613,7 +641,7 @@ function resizeImageToDataUrl(file, maxDim, callback) {
       canvas.height = height;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, width, height);
-      callback(canvas.toDataURL("image/jpeg", 0.7));
+      onSuccess(canvas.toDataURL("image/jpeg", 0.7));
     };
     img.src = e.target.result;
   };
