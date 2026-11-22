@@ -27,6 +27,7 @@
 <nav id="menuPanel" class="menu-panel hidden">
   <button id="newTripBtn">🆕 New Trip</button>
   <button id="editTripBtn">✏️ Edit Trip</button>
+  <button id="paymentsBtn">💵 Payments</button>
   <button id="historyBtn">📜 Past Trips</button>
   <button id="shareTripBtn">🔗 Share Trip</button>
   <button id="endTripBtn" class="danger">✅ End Trip</button>
@@ -143,9 +144,6 @@
     </div>
     <ul id="attributionPeopleList" class="chip-list selectable"></ul>
 
-    <label class="field-label">Who paid? (optional)</label>
-    <ul id="paidByList" class="chip-list selectable"></ul>
-
     <button id="saveItemBtn" class="primary-btn">Save Item</button>
   </div>
 </div>
@@ -169,6 +167,33 @@
     </div>
 
     <button id="saveTripEditsBtn" class="primary-btn">Done</button>
+  </div>
+</div>
+
+<!-- PAYMENTS MODAL -->
+<div id="paymentsModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Payments</h3>
+      <button id="closePaymentsBtn" class="icon-btn">✕</button>
+    </div>
+
+    <ul id="paymentsListEl" class="payments-list"></ul>
+    <p id="paymentsEmpty" class="hint hidden">No payments logged yet.</p>
+
+    <label class="field-label">Who paid?</label>
+    <ul id="paymentPayerList" class="chip-list selectable"></ul>
+
+    <label class="field-label" for="paymentAmountInput">Amount</label>
+    <div class="price-input-row">
+      <span class="currency">$</span>
+      <input id="paymentAmountInput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" />
+    </div>
+
+    <label class="field-label" for="paymentNoteInput">What for? (optional)</label>
+    <input id="paymentNoteInput" type="text" placeholder="e.g. Costco receipt, Uber" maxlength="60" />
+
+    <button id="addPaymentBtn" class="primary-btn">Add Payment</button>
   </div>
 </div>
 

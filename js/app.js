@@ -12,8 +12,7 @@ let filterPersonId = null;
 let viewingHistoryTrip = null;
 let historyDetailFilterPersonId = null;
 let summaryTrip = null;
-let selectedPaidById = null;
-let lastPaidById = null; // remembers the last payer chosen, to default the next item
+let selectedPaymentPayerId = null;
 
 const VAT_RATE = 0.2;
 
@@ -92,7 +91,6 @@ function cacheEls() {
   els.itemVatPriceInput = document.getElementById("itemVatPriceInput");
   els.attributionPeopleList = document.getElementById("attributionPeopleList");
   els.modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
-  els.paidByList = document.getElementById("paidByList");
   els.saveItemBtn = document.getElementById("saveItemBtn");
 
   els.editTripModal = document.getElementById("editTripModal");
@@ -102,6 +100,16 @@ function cacheEls() {
   els.editPersonNameInput = document.getElementById("editPersonNameInput");
   els.editAddPersonBtn = document.getElementById("editAddPersonBtn");
   els.saveTripEditsBtn = document.getElementById("saveTripEditsBtn");
+
+  els.paymentsBtn = document.getElementById("paymentsBtn");
+  els.paymentsModal = document.getElementById("paymentsModal");
+  els.closePaymentsBtn = document.getElementById("closePaymentsBtn");
+  els.paymentsListEl = document.getElementById("paymentsListEl");
+  els.paymentsEmpty = document.getElementById("paymentsEmpty");
+  els.paymentPayerList = document.getElementById("paymentPayerList");
+  els.paymentAmountInput = document.getElementById("paymentAmountInput");
+  els.paymentNoteInput = document.getElementById("paymentNoteInput");
+  els.addPaymentBtn = document.getElementById("addPaymentBtn");
 
   els.summaryModal = document.getElementById("summaryModal");
   els.summaryTitle = document.getElementById("summaryTitle");
@@ -137,6 +145,12 @@ function bindEvents() {
     els.menuPanel.classList.add("hidden");
     if (!activeTrip) return;
     openEditTripModal();
+  });
+
+  els.paymentsBtn.addEventListener("click", () => {
+    els.menuPanel.classList.add("hidden");
+    if (!activeTrip) return;
+    openPaymentsModal();
   });
 
   els.historyBtn.addEventListener("click", () => {
@@ -232,6 +246,10 @@ function bindEvents() {
     }
   });
   els.saveTripEditsBtn.addEventListener("click", saveTripEdits);
+
+  // Payments modal
+  els.closePaymentsBtn.addEventListener("click", closePaymentsModal);
+  els.addPaymentBtn.addEventListener("click", handleAddPayment);
 
   els.closeSummaryBtn.addEventListener("click", () => els.summaryModal.classList.add("hidden"));
   els.shareSummaryBtn.addEventListener("click", () => shareTrip(summaryTrip));
@@ -388,18 +406,17 @@ function computeTotals(trip) {
 // Splitwise and similar apps use), rather than everyone paying everyone a
 // little bit.
 function computeSettlement(trip) {
-  const { owedCents } = computeOwedCents(trip);
+  const { owedCents, grandTotalCents } = computeOwedCents(trip);
 
   const paidCents = {};
   trip.people.forEach((p) => (paidCents[p.id] = 0));
-  let unassignedCents = 0;
+  let totalPaidCents = 0;
 
-  trip.items.forEach((item) => {
-    const priceCents = Math.round((Number(item.price) || 0) * 100);
-    if (item.paidBy && paidCents[item.paidBy] !== undefined) {
-      paidCents[item.paidBy] += priceCents;
-    } else {
-      unassignedCents += priceCents;
+  (trip.payments || []).forEach((payment) => {
+    const cents = Math.round((Number(payment.amount) || 0) * 100);
+    totalPaidCents += cents;
+    if (paidCents[payment.payerId] !== undefined) {
+      paidCents[payment.payerId] += cents;
     }
   });
 
@@ -408,7 +425,11 @@ function computeSettlement(trip) {
     balanceCents[p.id] = (paidCents[p.id] || 0) - (owedCents[p.id] || 0);
   });
 
-  return { transactions: simplifyDebts(balanceCents, trip.people), unassignedCents };
+  return {
+    transactions: simplifyDebts(balanceCents, trip.people),
+    totalPaidCents,
+    totalOwedCents: grandTotalCents,
+  };
 }
 
 function simplifyDebts(balanceCents, people) {
@@ -442,7 +463,7 @@ function simplifyDebts(balanceCents, people) {
 
 // Shared by the Trip Summary modal and the past-trip detail screen.
 function renderSettlement(container, trip) {
-  const { transactions, unassignedCents } = computeSettlement(trip);
+  const { transactions, totalPaidCents, totalOwedCents } = computeSettlement(trip);
   const peopleById = {};
   trip.people.forEach((p) => (peopleById[p.id] = p.name));
 
@@ -457,7 +478,7 @@ function renderSettlement(container, trip) {
     const empty = document.createElement("p");
     empty.className = "hint settlement-empty";
     empty.textContent =
-      unassignedCents > 0 ? "Log who paid for each item to see who owes who." : "Everyone's all settled up! 🎉";
+      totalPaidCents === 0 ? "Log who paid what in Payments to see who owes who." : "Everyone's all settled up! 🎉";
     container.appendChild(empty);
     return;
   }
@@ -469,10 +490,14 @@ function renderSettlement(container, trip) {
     container.appendChild(row);
   });
 
-  if (unassignedCents > 0) {
+  // Payments can validly exceed the trip total (someone covered a personal
+  // expense too, a tip, rounding, etc.) — that doesn't need a warning, the
+  // transactions above already account for it correctly. Only a shortfall
+  // means some of the trip's cost hasn't been logged as paid by anyone yet.
+  if (totalPaidCents < totalOwedCents) {
     const note = document.createElement("p");
     note.className = "hint settlement-note";
-    note.textContent = `${formatMoney(unassignedCents / 100)} worth of items have no payer set, so they're left out of this.`;
+    note.textContent = `Logged payments total ${formatMoney(totalPaidCents / 100)}, but the trip total is ${formatMoney(totalOwedCents / 100)} — add the rest in Payments for a fully accurate settle-up.`;
     container.appendChild(note);
   }
 }
@@ -545,7 +570,7 @@ function renderItemList() {
     const li = document.createElement("li");
     li.className = "item-card";
 
-    const attributionLabel = describeAttribution(item) + paidByLabel(activeTrip, item);
+    const attributionLabel = describeAttribution(item);
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
       : "";
@@ -681,13 +706,6 @@ function describeAttribution(item) {
   return describeAttributionFor(activeTrip, itemTargets(item));
 }
 
-// Shared by the shopping screen and the past-trip detail screen.
-function paidByLabel(trip, item) {
-  if (!item.paidBy) return "";
-  const payer = trip.people.find((p) => p.id === item.paidBy);
-  return payer ? ` · Paid by ${payer.name}` : "";
-}
-
 // ---------- Edit Trip modal ----------
 
 function openEditTripModal() {
@@ -797,6 +815,117 @@ function removeEditPerson(person) {
   activeTrip = result;
   renderEditPeopleList();
   refreshShoppingScreen();
+}
+
+// ---------- Payments modal ----------
+
+function openPaymentsModal() {
+  selectedPaymentPayerId = null;
+  els.paymentAmountInput.value = "";
+  els.paymentNoteInput.value = "";
+  renderPaymentPayerList();
+  renderPaymentsList();
+  els.paymentsModal.classList.remove("hidden");
+}
+
+function closePaymentsModal() {
+  els.paymentsModal.classList.add("hidden");
+}
+
+function renderPaymentPayerList() {
+  els.paymentPayerList.innerHTML = "";
+
+  activeTrip.people.forEach((person) => {
+    const li = document.createElement("li");
+    li.textContent = person.name;
+    li.dataset.personId = person.id;
+    if (selectedPaymentPayerId === person.id) li.classList.add("selected");
+
+    li.addEventListener("click", () => {
+      selectedPaymentPayerId = selectedPaymentPayerId === person.id ? null : person.id;
+      renderPaymentPayerList();
+    });
+
+    els.paymentPayerList.appendChild(li);
+  });
+}
+
+function renderPaymentsList() {
+  const payments = activeTrip.payments || [];
+  els.paymentsListEl.innerHTML = "";
+  els.paymentsEmpty.classList.toggle("hidden", payments.length > 0);
+
+  payments.forEach((payment) => {
+    const payer = activeTrip.people.find((p) => p.id === payment.payerId);
+    const li = document.createElement("li");
+
+    const info = document.createElement("div");
+    info.className = "payment-info";
+    const payerLine = document.createElement("div");
+    payerLine.className = "payment-payer";
+    payerLine.textContent = payer ? payer.name : "?";
+    info.appendChild(payerLine);
+    if (payment.note) {
+      const noteLine = document.createElement("div");
+      noteLine.className = "payment-note";
+      noteLine.textContent = payment.note;
+      info.appendChild(noteLine);
+    }
+    li.appendChild(info);
+
+    const amount = document.createElement("div");
+    amount.className = "payment-amount";
+    amount.textContent = formatMoney(payment.amount);
+    li.appendChild(amount);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "payment-delete";
+    deleteBtn.textContent = "🗑️";
+    deleteBtn.setAttribute("aria-label", "Delete payment");
+    deleteBtn.addEventListener("click", () => handleDeletePayment(payment.id));
+    li.appendChild(deleteBtn);
+
+    els.paymentsListEl.appendChild(li);
+  });
+}
+
+function handleAddPayment() {
+  if (!selectedPaymentPayerId) {
+    alert("Pick who paid.");
+    return;
+  }
+  const amount = parseFloat(els.paymentAmountInput.value);
+  if (isNaN(amount) || amount <= 0) {
+    alert("Enter a valid amount.");
+    els.paymentAmountInput.focus();
+    return;
+  }
+  const note = els.paymentNoteInput.value.trim();
+
+  const result = DB.addPayment({ payerId: selectedPaymentPayerId, amount, note });
+  if (!result) {
+    alertStorageFailure();
+    return;
+  }
+  activeTrip = result;
+
+  selectedPaymentPayerId = null;
+  els.paymentAmountInput.value = "";
+  els.paymentNoteInput.value = "";
+  renderPaymentPayerList();
+  renderPaymentsList();
+}
+
+function handleDeletePayment(paymentId) {
+  if (!confirm("Delete this payment?")) return;
+  const result = DB.deletePayment(paymentId);
+  if (!result) {
+    alertStorageFailure();
+    return;
+  }
+  activeTrip = result;
+  renderPaymentsList();
 }
 
 // ---------- Photo capture ----------
@@ -970,15 +1099,6 @@ function openItemModal(photoDataUrl, existingItem) {
   updateModeButtons();
   renderAttributionPeopleList();
 
-  if (existingItem) {
-    selectedPaidById = existingItem.paidBy || null;
-  } else {
-    // Default to whoever paid last time, since the same person usually pays
-    // for the whole trip — but only if they're still on the trip.
-    selectedPaidById = lastPaidById && activeTrip.people.some((p) => p.id === lastPaidById) ? lastPaidById : null;
-  }
-  renderPaidByList();
-
   els.saveItemBtn.textContent = existingItem ? "Save Changes" : "Save Item";
 
   els.itemModal.classList.remove("hidden");
@@ -1036,24 +1156,6 @@ function renderAttributionPeopleList() {
   });
 }
 
-function renderPaidByList() {
-  els.paidByList.innerHTML = "";
-
-  activeTrip.people.forEach((person) => {
-    const li = document.createElement("li");
-    li.textContent = person.name;
-    li.dataset.personId = person.id;
-    if (selectedPaidById === person.id) li.classList.add("selected");
-
-    li.addEventListener("click", () => {
-      selectedPaidById = selectedPaidById === person.id ? null : person.id;
-      renderPaidByList();
-    });
-
-    els.paidByList.appendChild(li);
-  });
-}
-
 function saveItem() {
   const tagPrice = parseFloat(els.itemPriceInput.value);
   if (isNaN(tagPrice) || tagPrice < 0) {
@@ -1097,7 +1199,6 @@ function saveItem() {
     priceExclVat,
     photo: pendingPhotoDataUrl,
     attributedTo,
-    paidBy: selectedPaidById,
   };
 
   const result = editingItemId ? DB.updateItem(editingItemId, fields) : DB.addItem(fields);
@@ -1105,8 +1206,6 @@ function saveItem() {
     alertStorageFailure();
     return; // keep the modal open so the user's input isn't lost
   }
-
-  if (selectedPaidById) lastPaidById = selectedPaidById;
 
   activeTrip = DB.getActiveTrip();
   closeItemModal();
@@ -1157,8 +1256,7 @@ function generateReceiptText(trip) {
         item.attributedTo && item.attributedTo.length > 0
           ? item.attributedTo.map((id) => peopleById[id] || "?").join(", ")
           : "Everyone";
-      const paidNote = item.paidBy && peopleById[item.paidBy] ? `, paid by ${peopleById[item.paidBy]}` : "";
-      lines.push(`${name} — ${formatMoney(item.price)} (${who}${paidNote})`);
+      lines.push(`${name} — ${formatMoney(item.price)} (${who})`);
     });
 
   lines.push("", divider);
@@ -1167,14 +1265,25 @@ function generateReceiptText(trip) {
   });
   lines.push(divider, `${"TRIP TOTAL".padEnd(20)} ${formatMoney(grandTotal)}`);
 
-  const { transactions, unassignedCents } = computeSettlement(trip);
+  if (trip.payments && trip.payments.length > 0) {
+    lines.push("", divider, "PAYMENTS");
+    trip.payments
+      .slice()
+      .reverse()
+      .forEach((payment) => {
+        const note = payment.note && payment.note.trim() ? ` (${payment.note.trim()})` : "";
+        lines.push(`${peopleById[payment.payerId] || "?"} paid ${formatMoney(payment.amount)}${note}`);
+      });
+  }
+
+  const { transactions, totalPaidCents, totalOwedCents } = computeSettlement(trip);
   if (transactions.length > 0) {
     lines.push("", divider, "SETTLE UP");
     transactions.forEach((t) => {
       lines.push(`${peopleById[t.fromId] || "?"} owes ${peopleById[t.toId] || "?"} ${formatMoney(t.amountCents / 100)}`);
     });
-    if (unassignedCents > 0) {
-      lines.push(`(${formatMoney(unassignedCents / 100)} has no payer logged, not included above)`);
+    if (totalPaidCents < totalOwedCents) {
+      lines.push(`(Payments logged: ${formatMoney(totalPaidCents / 100)} — trip total: ${formatMoney(totalOwedCents / 100)})`);
     }
   }
 
@@ -1308,7 +1417,7 @@ function renderHistoryDetailItemList() {
     const li = document.createElement("li");
     li.className = "item-card";
 
-    const attributionLabel = describeAttributionFor(trip, historyDetailItemTargets(item)) + paidByLabel(trip, item);
+    const attributionLabel = describeAttributionFor(trip, historyDetailItemTargets(item));
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
       : "";

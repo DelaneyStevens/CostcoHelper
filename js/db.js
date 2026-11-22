@@ -51,6 +51,7 @@ const DB = (() => {
       createdAt: Date.now(),
       people: peopleNames.map((name) => ({ id: uid(), name })),
       items: [],
+      payments: [],
     };
     return saveActiveTrip(trip) ? trip : null;
   }
@@ -108,6 +109,26 @@ const DB = (() => {
     return saveActiveTrip(trip) ? trip : null;
   }
 
+  // Payments are logged at the trip level (a lump sum someone paid, e.g.
+  // "Morgan paid $100 for the Costco receipt"), separate from items — they
+  // don't need to correspond to any single item, so settling up works the
+  // same whether one person covers the whole cart or several people chip in
+  // at different points during (or after) the trip.
+  function addPayment(payment) {
+    const trip = getActiveTrip();
+    if (!trip) return null;
+    if (!trip.payments) trip.payments = [];
+    trip.payments.unshift({ id: uid(), createdAt: Date.now(), ...payment });
+    return saveActiveTrip(trip) ? trip : null;
+  }
+
+  function deletePayment(paymentId) {
+    const trip = getActiveTrip();
+    if (!trip) return null;
+    trip.payments = (trip.payments || []).filter((p) => p.id !== paymentId);
+    return saveActiveTrip(trip) ? trip : null;
+  }
+
   function getHistory() {
     const raw = localStorage.getItem(HISTORY_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -143,6 +164,8 @@ const DB = (() => {
     addItem,
     updateItem,
     deleteItem,
+    addPayment,
+    deletePayment,
     getHistory,
     deleteTrip,
     endActiveTrip,

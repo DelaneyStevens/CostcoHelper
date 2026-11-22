@@ -810,3 +810,57 @@ button {
 .settlement-note {
   margin: 0 0 4px;
 }
+
+.payments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.payments-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.payments-list .payment-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.payments-list .payment-payer {
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.payments-list .payment-note {
+  font-family: "Nunito", sans-serif;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.payments-list .payment-amount {
+  font-family: "Outfit", sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.payments-list .payment-delete {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  padding: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
