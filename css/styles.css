@@ -788,6 +788,10 @@ button {
   margin: 18px 0 8px;
 }
 
+.section-label-row .settlement-heading {
+  margin: 18px 0 0;
+}
+
 .settlement-row {
   display: flex;
   justify-content: space-between;

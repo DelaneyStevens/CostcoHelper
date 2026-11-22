@@ -310,7 +310,7 @@ function refreshShoppingScreen() {
   els.tripTitle.textContent = activeTrip.name ? `🛒 ${activeTrip.name}` : "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
   renderTotals();
-  renderSettlement(els.shoppingSettlement, activeTrip);
+  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
   renderItemList();
 }
 
@@ -466,17 +466,30 @@ function simplifyDebts(balanceCents, people) {
 }
 
 // Shared by the Trip Summary modal and the past-trip detail screen.
-function renderSettlement(container, trip) {
+function renderSettlement(container, trip, options) {
   const { transactions, totalPaidCents, totalOwedCents } = computeSettlement(trip);
   const peopleById = {};
   trip.people.forEach((p) => (peopleById[p.id] = p.name));
 
   container.innerHTML = "";
 
+  const headingRow = document.createElement("div");
+  headingRow.className = "section-label-row";
   const heading = document.createElement("h4");
   heading.className = "settlement-heading";
   heading.textContent = "Settle Up";
-  container.appendChild(heading);
+  headingRow.appendChild(heading);
+
+  if (options && options.onPaymentsClick) {
+    const paymentsBtn = document.createElement("button");
+    paymentsBtn.type = "button";
+    paymentsBtn.className = "link-btn";
+    paymentsBtn.textContent = "💵 Payments";
+    paymentsBtn.addEventListener("click", options.onPaymentsClick);
+    headingRow.appendChild(paymentsBtn);
+  }
+
+  container.appendChild(headingRow);
 
   if (transactions.length === 0) {
     const empty = document.createElement("p");
@@ -607,7 +620,7 @@ function renderItemList() {
         }
         activeTrip = DB.getActiveTrip();
         renderTotals();
-        renderSettlement(els.shoppingSettlement, activeTrip);
+        renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
         renderItemList();
       }
     });
@@ -669,7 +682,7 @@ function buildQuickSplitPanel(item) {
       }
       activeTrip = DB.getActiveTrip();
       renderTotals();
-      renderSettlement(els.shoppingSettlement, activeTrip);
+      renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
       renderItemList();
     });
 
@@ -922,7 +935,7 @@ function handleAddPayment() {
   els.paymentNoteInput.value = "";
   renderPaymentPayerList();
   renderPaymentsList();
-  renderSettlement(els.shoppingSettlement, activeTrip);
+  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
 }
 
 function handleDeletePayment(paymentId) {
@@ -934,7 +947,7 @@ function handleDeletePayment(paymentId) {
   }
   activeTrip = result;
   renderPaymentsList();
-  renderSettlement(els.shoppingSettlement, activeTrip);
+  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
 }
 
 // ---------- Photo capture ----------
@@ -1227,7 +1240,7 @@ function saveItem() {
   activeTrip = DB.getActiveTrip();
   closeItemModal();
   renderTotals();
-  renderSettlement(els.shoppingSettlement, activeTrip);
+  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
   renderItemList();
 }
 
