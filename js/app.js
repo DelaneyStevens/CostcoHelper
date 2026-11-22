@@ -38,6 +38,7 @@ function cacheEls() {
   els.menuBtn = document.getElementById("menuBtn");
   els.menuPanel = document.getElementById("menuPanel");
   els.newTripBtn = document.getElementById("newTripBtn");
+  els.editTripBtn = document.getElementById("editTripBtn");
   els.historyBtn = document.getElementById("historyBtn");
   els.shareTripBtn = document.getElementById("shareTripBtn");
   els.endTripBtn = document.getElementById("endTripBtn");
@@ -90,6 +91,14 @@ function cacheEls() {
   els.modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
   els.saveItemBtn = document.getElementById("saveItemBtn");
 
+  els.editTripModal = document.getElementById("editTripModal");
+  els.closeEditTripBtn = document.getElementById("closeEditTripBtn");
+  els.editTripNameInput = document.getElementById("editTripNameInput");
+  els.editPeopleList = document.getElementById("editPeopleList");
+  els.editPersonNameInput = document.getElementById("editPersonNameInput");
+  els.editAddPersonBtn = document.getElementById("editAddPersonBtn");
+  els.saveTripEditsBtn = document.getElementById("saveTripEditsBtn");
+
   els.summaryModal = document.getElementById("summaryModal");
   els.summaryTitle = document.getElementById("summaryTitle");
   els.closeSummaryBtn = document.getElementById("closeSummaryBtn");
@@ -117,6 +126,12 @@ function bindEvents() {
 
   els.backFromSetupBtn.addEventListener("click", () => {
     if (activeTrip) showShoppingScreen();
+  });
+
+  els.editTripBtn.addEventListener("click", () => {
+    els.menuPanel.classList.add("hidden");
+    if (!activeTrip) return;
+    openEditTripModal();
   });
 
   els.historyBtn.addEventListener("click", () => {
@@ -202,6 +217,17 @@ function bindEvents() {
 
   els.saveItemBtn.addEventListener("click", saveItem);
 
+  // Edit Trip modal
+  els.closeEditTripBtn.addEventListener("click", closeEditTripModal);
+  els.editAddPersonBtn.addEventListener("click", addEditPerson);
+  els.editPersonNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addEditPerson();
+    }
+  });
+  els.saveTripEditsBtn.addEventListener("click", saveTripEdits);
+
   els.closeSummaryBtn.addEventListener("click", () => els.summaryModal.classList.add("hidden"));
   els.shareSummaryBtn.addEventListener("click", () => shareTrip(summaryTrip));
   els.downloadReceiptBtn.addEventListener("click", () => downloadReceipt(summaryTrip));
@@ -248,6 +274,13 @@ function showShoppingScreen() {
   expandedItemId = null;
   filterPersonId = null;
   els.shoppingScreen.classList.remove("hidden");
+  refreshShoppingScreen();
+}
+
+// Re-reads activeTrip's name/people into the header and re-renders the
+// totals bar + item list — used both when first showing the shopping
+// screen and after editing the trip's name or shoppers from the menu.
+function refreshShoppingScreen() {
   els.tripTitle.textContent = activeTrip.name ? `🛒 ${activeTrip.name}` : "🛒 Shopping Trip";
   els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
   renderTotals();
@@ -540,6 +573,117 @@ function describeAttributionFor(trip, targets) {
 
 function describeAttribution(item) {
   return describeAttributionFor(activeTrip, itemTargets(item));
+}
+
+// ---------- Edit Trip modal ----------
+
+function openEditTripModal() {
+  els.editTripNameInput.value = activeTrip.name || "";
+  els.editPersonNameInput.value = "";
+  renderEditPeopleList();
+  els.editTripModal.classList.remove("hidden");
+}
+
+function closeEditTripModal() {
+  els.editTripModal.classList.add("hidden");
+}
+
+function saveTripEdits() {
+  const result = DB.renameTrip(els.editTripNameInput.value);
+  if (!result) {
+    alertStorageFailure();
+    return;
+  }
+  activeTrip = result;
+  closeEditTripModal();
+  refreshShoppingScreen();
+}
+
+// True if the person is explicitly named in any item's split (either alone
+// or as part of a custom subset) — as opposed to only being included via
+// the "everyone" fallback, which recomputes automatically against whoever
+// is left on the trip and so never blocks removal.
+function personHasExplicitItems(trip, personId) {
+  return trip.items.some((item) => item.attributedTo && item.attributedTo.length > 0 && item.attributedTo.includes(personId));
+}
+
+function renderEditPeopleList() {
+  els.editPeopleList.innerHTML = "";
+
+  activeTrip.people.forEach((person) => {
+    const li = document.createElement("li");
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = person.name;
+    li.appendChild(nameSpan);
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "chip-edit";
+    editBtn.type = "button";
+    editBtn.textContent = "✏️";
+    editBtn.setAttribute("aria-label", `Rename ${person.name}`);
+    editBtn.addEventListener("click", () => renameEditPerson(person));
+    li.appendChild(editBtn);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "chip-remove";
+    removeBtn.type = "button";
+    removeBtn.textContent = "✕";
+    removeBtn.setAttribute("aria-label", `Remove ${person.name}`);
+    removeBtn.addEventListener("click", () => removeEditPerson(person));
+    li.appendChild(removeBtn);
+
+    els.editPeopleList.appendChild(li);
+  });
+}
+
+function addEditPerson() {
+  const name = els.editPersonNameInput.value.trim();
+  if (!name) return;
+  const result = DB.addPersonToActiveTrip(name);
+  if (!result) {
+    alertStorageFailure();
+    return;
+  }
+  activeTrip = result;
+  els.editPersonNameInput.value = "";
+  renderEditPeopleList();
+  refreshShoppingScreen();
+}
+
+function renameEditPerson(person) {
+  const newName = prompt(`Rename ${person.name} to:`, person.name);
+  if (newName === null) return; // cancelled
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed === person.name) return;
+  const result = DB.renamePerson(person.id, trimmed);
+  if (!result) {
+    alertStorageFailure();
+    return;
+  }
+  activeTrip = result;
+  renderEditPeopleList();
+  refreshShoppingScreen();
+}
+
+function removeEditPerson(person) {
+  if (activeTrip.people.length <= 1) {
+    alert("A trip needs at least one person.");
+    return;
+  }
+  if (personHasExplicitItems(activeTrip, person.id)) {
+    alert(`Can't remove ${person.name} — they have items attributed to them. Reassign or delete those items first.`);
+    return;
+  }
+  if (!confirm(`Remove ${person.name} from this trip?`)) return;
+  const result = DB.removePersonFromActiveTrip(person.id);
+  if (!result) {
+    alertStorageFailure();
+    return;
+  }
+  activeTrip = result;
+  renderEditPeopleList();
+  refreshShoppingScreen();
 }
 
 // ---------- Photo capture ----------
