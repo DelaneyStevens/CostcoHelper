@@ -12,17 +12,38 @@ const DB = (() => {
     return raw ? JSON.parse(raw) : null;
   }
 
+  // Returns true on success, false if the write failed (e.g. storage quota
+  // exceeded) — localStorage.setItem throws rather than failing silently, so
+  // every caller that mutates persisted state needs to check this instead of
+  // assuming the save always took effect.
   function saveActiveTrip(trip) {
-    localStorage.setItem(ACTIVE_KEY, JSON.stringify(trip));
+    try {
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify(trip));
+      return true;
+    } catch (err) {
+      console.error("Failed to save active trip:", err);
+      return false;
+    }
   }
 
   function clearActiveTrip() {
     localStorage.removeItem(ACTIVE_KEY);
   }
 
+  function saveHistory(history) {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      return true;
+    } catch (err) {
+      console.error("Failed to save trip history:", err);
+      return false;
+    }
+  }
+
+  // Returns the new trip on success, or null if it couldn't be persisted.
   function createTrip(peopleNames, tripName) {
     if (getActiveTrip()) {
-      endActiveTrip();
+      if (!endActiveTrip()) return null;
     }
     const trip = {
       id: uid(),
@@ -31,24 +52,21 @@ const DB = (() => {
       people: peopleNames.map((name) => ({ id: uid(), name })),
       items: [],
     };
-    saveActiveTrip(trip);
-    return trip;
+    return saveActiveTrip(trip) ? trip : null;
   }
 
   function addPersonToActiveTrip(name) {
     const trip = getActiveTrip();
     if (!trip) return null;
     trip.people.push({ id: uid(), name });
-    saveActiveTrip(trip);
-    return trip;
+    return saveActiveTrip(trip) ? trip : null;
   }
 
   function addItem(item) {
     const trip = getActiveTrip();
     if (!trip) return null;
     trip.items.unshift({ id: uid(), createdAt: Date.now(), ...item });
-    saveActiveTrip(trip);
-    return trip;
+    return saveActiveTrip(trip) ? trip : null;
   }
 
   function updateItem(itemId, patch) {
@@ -57,16 +75,14 @@ const DB = (() => {
     const item = trip.items.find((i) => i.id === itemId);
     if (!item) return trip;
     Object.assign(item, patch);
-    saveActiveTrip(trip);
-    return trip;
+    return saveActiveTrip(trip) ? trip : null;
   }
 
   function deleteItem(itemId) {
     const trip = getActiveTrip();
     if (!trip) return null;
     trip.items = trip.items.filter((i) => i.id !== itemId);
-    saveActiveTrip(trip);
-    return trip;
+    return saveActiveTrip(trip) ? trip : null;
   }
 
   function getHistory() {
@@ -74,20 +90,23 @@ const DB = (() => {
     return raw ? JSON.parse(raw) : [];
   }
 
+  // Returns true on success, false if the write failed.
   function deleteTrip(tripId) {
     const history = getHistory().filter((t) => t.id !== tripId);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    return history;
+    return saveHistory(history);
   }
 
+  // Returns true on success, false if the write failed (the active trip is
+  // left in place so it isn't lost if archiving it doesn't fit in storage).
   function endActiveTrip() {
     const trip = getActiveTrip();
-    if (!trip) return;
+    if (!trip) return false;
     trip.endedAt = Date.now();
     const history = getHistory();
     history.unshift(trip);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    if (!saveHistory(history)) return false;
     clearActiveTrip();
+    return true;
   }
 
   return {

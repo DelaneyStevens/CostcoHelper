@@ -141,7 +141,10 @@ function bindEvents() {
   els.deleteHistoryTripBtn.addEventListener("click", () => {
     if (!viewingHistoryTrip) return;
     if (confirm("Delete this trip? This cannot be undone.")) {
-      DB.deleteTrip(viewingHistoryTrip.id);
+      if (!DB.deleteTrip(viewingHistoryTrip.id)) {
+        alertStorageFailure();
+        return;
+      }
       viewingHistoryTrip = null;
       showHistoryScreen();
     }
@@ -199,7 +202,10 @@ function bindEvents() {
   els.downloadReceiptBtn.addEventListener("click", () => downloadReceipt(summaryTrip));
   els.confirmEndTripBtn.addEventListener("click", () => {
     if (confirm("End this trip? It will be moved to Past Trips.")) {
-      DB.endActiveTrip();
+      if (!DB.endActiveTrip()) {
+        alertStorageFailure();
+        return;
+      }
       activeTrip = null;
       els.summaryModal.classList.add("hidden");
       showSetupScreen();
@@ -281,29 +287,49 @@ function renderSetupPeopleList() {
 
 function startTrip() {
   if (editingSetupPeople.length === 0) return;
-  activeTrip = DB.createTrip(editingSetupPeople.map((p) => p.name), els.tripNameInput.value);
+  const trip = DB.createTrip(editingSetupPeople.map((p) => p.name), els.tripNameInput.value);
+  if (!trip) {
+    alertStorageFailure();
+    return;
+  }
+  activeTrip = trip;
   showShoppingScreen();
 }
 
 // ---------- Shopping screen: totals & items ----------
 
 function computeTotals(trip) {
-  const totals = {};
-  trip.people.forEach((p) => (totals[p.id] = 0));
-  let grandTotal = 0;
+  // Split in integer cents (with the odd cent going to the first targets)
+  // rather than floating-point dollars, so per-person shares always add up
+  // exactly to the item price — e.g. $10 split 3 ways is $3.34/$3.33/$3.33,
+  // not three $3.33s that visibly fall a cent short of the $10.00 total.
+  const totalsCents = {};
+  trip.people.forEach((p) => (totalsCents[p.id] = 0));
+  let grandTotalCents = 0;
 
   trip.items.forEach((item) => {
-    const price = Number(item.price) || 0;
-    grandTotal += price;
+    const priceCents = Math.round((Number(item.price) || 0) * 100);
+    grandTotalCents += priceCents;
     const targets = item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : trip.people.map((p) => p.id);
-    const share = price / targets.length;
+    const baseShare = Math.floor(priceCents / targets.length);
+    let remainder = priceCents - baseShare * targets.length;
     targets.forEach((personId) => {
-      if (totals[personId] === undefined) totals[personId] = 0;
-      totals[personId] += share;
+      if (totalsCents[personId] === undefined) totalsCents[personId] = 0;
+      let share = baseShare;
+      if (remainder > 0) {
+        share += 1;
+        remainder -= 1;
+      }
+      totalsCents[personId] += share;
     });
   });
 
-  return { totals, grandTotal };
+  const totals = {};
+  Object.keys(totalsCents).forEach((id) => {
+    totals[id] = totalsCents[id] / 100;
+  });
+
+  return { totals, grandTotal: grandTotalCents / 100 };
 }
 
 function renderTotals() {
@@ -386,7 +412,10 @@ function renderItemList() {
 
     li.querySelector(".item-delete").addEventListener("click", () => {
       if (confirm("Delete this item?")) {
-        DB.deleteItem(item.id);
+        if (!DB.deleteItem(item.id)) {
+          alertStorageFailure();
+          return;
+        }
         activeTrip = DB.getActiveTrip();
         renderTotals();
         renderItemList();
@@ -442,7 +471,12 @@ function buildQuickSplitPanel(item) {
         e.target.checked = true;
         return;
       }
-      DB.updateItem(item.id, { attributedTo: Array.from(next) });
+      if (!DB.updateItem(item.id, { attributedTo: Array.from(next) })) {
+        alertStorageFailure();
+        activeTrip = DB.getActiveTrip();
+        renderItemList(); // revert the checkbox to the actually-persisted state
+        return;
+      }
       activeTrip = DB.getActiveTrip();
       renderTotals();
       renderItemList();
@@ -734,10 +768,10 @@ function saveItem() {
     attributedTo,
   };
 
-  if (editingItemId) {
-    DB.updateItem(editingItemId, fields);
-  } else {
-    DB.addItem(fields);
+  const result = editingItemId ? DB.updateItem(editingItemId, fields) : DB.addItem(fields);
+  if (!result) {
+    alertStorageFailure();
+    return; // keep the modal open so the user's input isn't lost
   }
 
   activeTrip = DB.getActiveTrip();
@@ -859,7 +893,10 @@ function renderHistory() {
     li.querySelector(".history-delete").addEventListener("click", (e) => {
       e.stopPropagation();
       if (confirm("Delete this trip? This cannot be undone.")) {
-        DB.deleteTrip(trip.id);
+        if (!DB.deleteTrip(trip.id)) {
+          alertStorageFailure();
+          return;
+        }
         renderHistory();
       }
     });
@@ -971,6 +1008,10 @@ function formatTime(ts) {
 
 function formatDate(ts) {
   return new Date(ts).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function alertStorageFailure() {
+  alert("Couldn't save that — your device's storage is full. Try deleting some past trips or photos to free up space, then try again.");
 }
 
 function escapeHtml(str) {
