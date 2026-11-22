@@ -91,6 +91,7 @@
       <button id="deleteHistoryTripBtn" class="icon-btn" aria-label="Delete trip">🗑️</button>
     </div>
     <div class="totals-bar" id="historyDetailTotalsBar"></div>
+    <div id="historyDetailSettlement"></div>
     <div class="summary-actions">
       <button id="shareHistoryTripBtn" class="secondary-btn">🔗 Share</button>
       <button id="downloadHistoryReceiptBtn" class="secondary-btn">⬇️ Download</button>
@@ -142,6 +143,9 @@
     </div>
     <ul id="attributionPeopleList" class="chip-list selectable"></ul>
 
+    <label class="field-label">Who paid? (optional)</label>
+    <ul id="paidByList" class="chip-list selectable"></ul>
+
     <button id="saveItemBtn" class="primary-btn">Save Item</button>
   </div>
 </div>
@@ -176,6 +180,7 @@
       <button id="closeSummaryBtn" class="icon-btn">✕</button>
     </div>
     <div id="summaryContent"></div>
+    <div id="summarySettlement"></div>
     <div class="summary-actions">
       <button id="shareSummaryBtn" class="secondary-btn">🔗 Share</button>
       <button id="downloadReceiptBtn" class="secondary-btn">⬇️ Download</button>
