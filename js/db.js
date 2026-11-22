@@ -55,13 +55,6 @@ const DB = (() => {
     return saveActiveTrip(trip) ? trip : null;
   }
 
-  function addPersonToActiveTrip(name) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    trip.people.push({ id: uid(), name });
-    return saveActiveTrip(trip) ? trip : null;
-  }
-
   function addItem(item) {
     const trip = getActiveTrip();
     if (!trip) return null;
@@ -112,10 +105,7 @@ const DB = (() => {
   return {
     uid,
     getActiveTrip,
-    saveActiveTrip,
-    clearActiveTrip,
     createTrip,
-    addPersonToActiveTrip,
     addItem,
     updateItem,
     deleteItem,

@@ -338,35 +338,49 @@ function computeTotals(trip) {
   return { totals, grandTotal: grandTotalCents / 100 };
 }
 
-function renderTotals() {
-  const { totals, grandTotal } = computeTotals(activeTrip);
-  els.totalsBar.innerHTML = "";
+// Shared by the shopping screen and the past-trip detail screen, which both
+// show a "Trip Total" card plus one selectable card per person.
+function renderTotalsBar(container, trip, totals, grandTotal, selectedPersonId, onSelectGrand, onSelectPerson) {
+  container.innerHTML = "";
 
   const grandCard = document.createElement("button");
   grandCard.type = "button";
   grandCard.className = "total-card grand";
-  if (filterPersonId === null) grandCard.classList.add("selected");
+  if (selectedPersonId === null) grandCard.classList.add("selected");
   grandCard.innerHTML = `<div class="name">Trip Total</div><div class="amount">${formatMoney(grandTotal)}</div>`;
-  grandCard.addEventListener("click", () => {
-    filterPersonId = null;
-    renderTotals();
-    renderItemList();
-  });
-  els.totalsBar.appendChild(grandCard);
+  grandCard.addEventListener("click", onSelectGrand);
+  container.appendChild(grandCard);
 
-  activeTrip.people.forEach((person) => {
+  trip.people.forEach((person) => {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "total-card";
-    if (filterPersonId === person.id) card.classList.add("selected");
+    if (selectedPersonId === person.id) card.classList.add("selected");
     card.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="amount">${formatMoney(totals[person.id] || 0)}</div>`;
-    card.addEventListener("click", () => {
-      filterPersonId = filterPersonId === person.id ? null : person.id;
+    card.addEventListener("click", () => onSelectPerson(person.id));
+    container.appendChild(card);
+  });
+}
+
+function renderTotals() {
+  const { totals, grandTotal } = computeTotals(activeTrip);
+  renderTotalsBar(
+    els.totalsBar,
+    activeTrip,
+    totals,
+    grandTotal,
+    filterPersonId,
+    () => {
+      filterPersonId = null;
       renderTotals();
       renderItemList();
-    });
-    els.totalsBar.appendChild(card);
-  });
+    },
+    (personId) => {
+      filterPersonId = filterPersonId === personId ? null : personId;
+      renderTotals();
+      renderItemList();
+    }
+  );
 }
 
 function itemTargets(item) {
@@ -510,17 +524,22 @@ function buildThumbEl(item) {
   return img;
 }
 
-function describeAttribution(item) {
-  const targets = itemTargets(item);
-  if (targets.length === activeTrip.people.length) {
+// Shared by the shopping screen and the past-trip detail screen, which both
+// need to turn an item's attributedTo list into a human-readable label.
+function describeAttributionFor(trip, targets) {
+  if (targets.length === trip.people.length) {
     return "Split: everyone";
   }
   const names = targets
-    .map((id) => activeTrip.people.find((p) => p.id === id))
+    .map((id) => trip.people.find((p) => p.id === id))
     .filter(Boolean)
     .map((p) => p.name);
   if (names.length === 1) return `For ${names[0]}`;
   return `Split: ${names.join(", ")}`;
+}
+
+function describeAttribution(item) {
+  return describeAttributionFor(activeTrip, itemTargets(item));
 }
 
 // ---------- Photo capture ----------
@@ -874,7 +893,9 @@ function downloadReceipt(trip) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Revoking immediately can race the download actually starting in some
+  // browsers (notably Safari), so give it a beat first.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function shareTrip(trip) {
@@ -953,33 +974,23 @@ function historyDetailItemTargets(item) {
 function renderHistoryDetailTotals() {
   const trip = viewingHistoryTrip;
   const { totals, grandTotal } = computeTotals(trip);
-  els.historyDetailTotalsBar.innerHTML = "";
-
-  const grandCard = document.createElement("button");
-  grandCard.type = "button";
-  grandCard.className = "total-card grand";
-  if (historyDetailFilterPersonId === null) grandCard.classList.add("selected");
-  grandCard.innerHTML = `<div class="name">Trip Total</div><div class="amount">${formatMoney(grandTotal)}</div>`;
-  grandCard.addEventListener("click", () => {
-    historyDetailFilterPersonId = null;
-    renderHistoryDetailTotals();
-    renderHistoryDetailItemList();
-  });
-  els.historyDetailTotalsBar.appendChild(grandCard);
-
-  trip.people.forEach((person) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "total-card";
-    if (historyDetailFilterPersonId === person.id) card.classList.add("selected");
-    card.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="amount">${formatMoney(totals[person.id] || 0)}</div>`;
-    card.addEventListener("click", () => {
-      historyDetailFilterPersonId = historyDetailFilterPersonId === person.id ? null : person.id;
+  renderTotalsBar(
+    els.historyDetailTotalsBar,
+    trip,
+    totals,
+    grandTotal,
+    historyDetailFilterPersonId,
+    () => {
+      historyDetailFilterPersonId = null;
       renderHistoryDetailTotals();
       renderHistoryDetailItemList();
-    });
-    els.historyDetailTotalsBar.appendChild(card);
-  });
+    },
+    (personId) => {
+      historyDetailFilterPersonId = historyDetailFilterPersonId === personId ? null : personId;
+      renderHistoryDetailTotals();
+      renderHistoryDetailItemList();
+    }
+  );
 }
 
 function renderHistoryDetailItemList() {
@@ -995,14 +1006,7 @@ function renderHistoryDetailItemList() {
     const li = document.createElement("li");
     li.className = "item-card";
 
-    const targets = historyDetailItemTargets(item);
-    let attributionLabel;
-    if (targets.length === trip.people.length) {
-      attributionLabel = "Split: everyone";
-    } else {
-      const names = targets.map((id) => trip.people.find((p) => p.id === id)).filter(Boolean).map((p) => p.name);
-      attributionLabel = names.length === 1 ? `For ${names[0]}` : `Split: ${names.join(", ")}`;
-    }
+    const attributionLabel = describeAttributionFor(trip, historyDetailItemTargets(item));
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
       : "";
