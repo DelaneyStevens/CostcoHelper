@@ -360,13 +360,6 @@ function renderItemList() {
     const li = document.createElement("li");
     li.className = "item-card";
 
-    let thumbHtml;
-    if (item.photo) {
-      thumbHtml = `<img class="item-thumb" src="${item.photo}" alt="" />`;
-    } else {
-      thumbHtml = `<div class="item-thumb placeholder">🧾</div>`;
-    }
-
     const attributionLabel = describeAttribution(item);
     const vatNote = item.vatIncluded
       ? `<div class="item-price-note">Inc. VAT — tag showed ${formatMoney(item.priceExclVat)}</div>`
@@ -374,7 +367,7 @@ function renderItemList() {
 
     li.innerHTML = `
       <div class="item-card-row">
-        ${thumbHtml}
+        <div class="item-thumb-slot"></div>
         <div class="item-info">
           <div class="item-name">${escapeHtml(item.name || "Item")}</div>
           <button type="button" class="item-attribution-btn">${escapeHtml(attributionLabel)}</button>
@@ -385,6 +378,7 @@ function renderItemList() {
         <button class="item-delete" aria-label="Delete">🗑️</button>
       </div>
     `;
+    li.querySelector(".item-thumb-slot").replaceWith(buildThumbEl(item));
 
     li.querySelector(".item-edit").addEventListener("click", () => {
       openItemModal(null, item);
@@ -458,6 +452,22 @@ function buildQuickSplitPanel(item) {
   });
 
   return panel;
+}
+
+function buildThumbEl(item) {
+  if (!item.photo) {
+    const placeholder = document.createElement("div");
+    placeholder.className = "item-thumb placeholder";
+    placeholder.textContent = "🧾";
+    return placeholder;
+  }
+  const img = document.createElement("img");
+  img.className = "item-thumb";
+  img.alt = "";
+  // Assigned as a property (not parsed as HTML), so this can't break out of
+  // an attribute even if item.photo ever came from an untrusted import.
+  img.src = item.photo;
+  return img;
 }
 
 function describeAttribution(item) {
@@ -920,13 +930,6 @@ function renderHistoryDetailItemList() {
     const li = document.createElement("li");
     li.className = "item-card";
 
-    let thumbHtml;
-    if (item.photo) {
-      thumbHtml = `<img class="item-thumb" src="${item.photo}" alt="" />`;
-    } else {
-      thumbHtml = `<div class="item-thumb placeholder">🧾</div>`;
-    }
-
     const targets = historyDetailItemTargets(item);
     let attributionLabel;
     if (targets.length === trip.people.length) {
@@ -941,7 +944,7 @@ function renderHistoryDetailItemList() {
 
     li.innerHTML = `
       <div class="item-card-row">
-        ${thumbHtml}
+        <div class="item-thumb-slot"></div>
         <div class="item-info">
           <div class="item-name">${escapeHtml(item.name || "Item")}</div>
           <div class="item-attribution">${escapeHtml(attributionLabel)}</div>
@@ -950,6 +953,7 @@ function renderHistoryDetailItemList() {
         <div class="item-price">${formatMoney(item.price)}</div>
       </div>
     `;
+    li.querySelector(".item-thumb-slot").replaceWith(buildThumbEl(item));
 
     els.historyDetailItemList.appendChild(li);
   });
