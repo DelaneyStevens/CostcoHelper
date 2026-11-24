@@ -18,7 +18,10 @@
 
 <header class="app-header">
   <div class="header-row">
-    <h1 id="tripTitle">🛒 CartShare</h1>
+    <div class="header-title-group">
+      <button id="backToHomeBtn" class="icon-btn hidden" aria-label="Back to trips">←</button>
+      <h1 id="tripTitle">🛒 CartShare</h1>
+    </div>
     <button id="menuBtn" class="icon-btn" aria-label="Menu">⋮</button>
   </div>
   <div id="tripSubtitle" class="trip-subtitle"></div>
@@ -35,10 +38,18 @@
 
 <main id="app">
 
+  <!-- HOME SCREEN -->
+  <section id="homeScreen" class="screen">
+    <h2>My Trips</h2>
+    <ul id="homeTripList" class="history-list"></ul>
+    <p id="homeEmpty" class="hint hidden">No trips yet — start one below.</p>
+    <button id="startNewTripBtn" class="primary-btn">🆕 Start a Trip</button>
+  </section>
+
   <!-- SETUP SCREEN -->
-  <section id="setupScreen" class="screen">
+  <section id="setupScreen" class="screen hidden">
     <div class="screen-header">
-      <button id="backFromSetupBtn" class="icon-btn hidden" aria-label="Cancel">←</button>
+      <button id="backFromSetupBtn" class="icon-btn" aria-label="Cancel">←</button>
       <h2>Start a shopping trip</h2>
     </div>
     <label class="field-label" for="tripNameInput">Trip name (optional)</label>

@@ -1,33 +1,34 @@
 // Simple localStorage-backed persistence for trips.
 const DB = (() => {
-  const ACTIVE_KEY = "costcohelper.activeTrip";
-  const HISTORY_KEY = "costcohelper.tripHistory";
+  const TRIPS_KEY = "costcohelper.liveTrips"; // array of trips currently in progress
+  const HISTORY_KEY = "costcohelper.tripHistory"; // array of ended trips
+  const LEGACY_ACTIVE_KEY = "costcohelper.activeTrip"; // pre-multi-trip single active trip
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
-  function getActiveTrip() {
-    const raw = localStorage.getItem(ACTIVE_KEY);
-    return raw ? JSON.parse(raw) : null;
+  function getLiveTrips() {
+    const raw = localStorage.getItem(TRIPS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }
+
+  function getLiveTrip(tripId) {
+    return getLiveTrips().find((t) => t.id === tripId) || null;
   }
 
   // Returns true on success, false if the write failed (e.g. storage quota
   // exceeded) — localStorage.setItem throws rather than failing silently, so
   // every caller that mutates persisted state needs to check this instead of
   // assuming the save always took effect.
-  function saveActiveTrip(trip) {
+  function saveLiveTrips(trips) {
     try {
-      localStorage.setItem(ACTIVE_KEY, JSON.stringify(trip));
+      localStorage.setItem(TRIPS_KEY, JSON.stringify(trips));
       return true;
     } catch (err) {
-      console.error("Failed to save active trip:", err);
+      console.error("Failed to save live trips:", err);
       return false;
     }
-  }
-
-  function clearActiveTrip() {
-    localStorage.removeItem(ACTIVE_KEY);
   }
 
   function saveHistory(history) {
@@ -40,11 +41,40 @@ const DB = (() => {
     }
   }
 
+  // One-time upgrade from the old single-active-trip model: if a trip is
+  // sitting under the legacy key, fold it into the new live-trips list so
+  // nobody's in-progress trip disappears when this version ships.
+  (function migrateLegacyActiveTrip() {
+    const raw = localStorage.getItem(LEGACY_ACTIVE_KEY);
+    if (!raw) return;
+    try {
+      const legacyTrip = JSON.parse(raw);
+      if (legacyTrip && typeof legacyTrip === "object") {
+        const trips = getLiveTrips();
+        trips.push(legacyTrip);
+        saveLiveTrips(trips);
+      }
+    } catch (err) {
+      console.error("Failed to migrate legacy active trip:", err);
+    } finally {
+      localStorage.removeItem(LEGACY_ACTIVE_KEY);
+    }
+  })();
+
+  // Looks up a live trip, hands it to `mutate` to change in place, then
+  // persists the whole list. Returns the updated trip on success, or null
+  // if the trip doesn't exist or the write failed.
+  function updateLiveTrip(tripId, mutate) {
+    const trips = getLiveTrips();
+    const trip = trips.find((t) => t.id === tripId);
+    if (!trip) return null;
+    mutate(trip);
+    return saveLiveTrips(trips) ? trip : null;
+  }
+
   // Returns the new trip on success, or null if it couldn't be persisted.
   function createTrip(peopleNames, tripName) {
-    if (getActiveTrip()) {
-      if (!endActiveTrip()) return null;
-    }
+    const trips = getLiveTrips();
     const trip = {
       id: uid(),
       name: tripName ? tripName.trim() : "",
@@ -53,60 +83,52 @@ const DB = (() => {
       items: [],
       payments: [],
     };
-    return saveActiveTrip(trip) ? trip : null;
+    trips.push(trip);
+    return saveLiveTrips(trips) ? trip : null;
   }
 
-  function renameTrip(newName) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    trip.name = newName ? newName.trim() : "";
-    return saveActiveTrip(trip) ? trip : null;
+  function renameTrip(tripId, newName) {
+    return updateLiveTrip(tripId, (trip) => {
+      trip.name = newName ? newName.trim() : "";
+    });
   }
 
-  function addPersonToActiveTrip(name) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    trip.people.push({ id: uid(), name });
-    return saveActiveTrip(trip) ? trip : null;
+  function addPersonToTrip(tripId, name) {
+    return updateLiveTrip(tripId, (trip) => {
+      trip.people.push({ id: uid(), name });
+    });
   }
 
-  function renamePerson(personId, newName) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    const person = trip.people.find((p) => p.id === personId);
-    if (!person) return trip;
-    person.name = newName;
-    return saveActiveTrip(trip) ? trip : null;
+  function renamePerson(tripId, personId, newName) {
+    return updateLiveTrip(tripId, (trip) => {
+      const person = trip.people.find((p) => p.id === personId);
+      if (person) person.name = newName;
+    });
   }
 
-  function removePersonFromActiveTrip(personId) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    trip.people = trip.people.filter((p) => p.id !== personId);
-    return saveActiveTrip(trip) ? trip : null;
+  function removePersonFromTrip(tripId, personId) {
+    return updateLiveTrip(tripId, (trip) => {
+      trip.people = trip.people.filter((p) => p.id !== personId);
+    });
   }
 
-  function addItem(item) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    trip.items.unshift({ id: uid(), createdAt: Date.now(), ...item });
-    return saveActiveTrip(trip) ? trip : null;
+  function addItem(tripId, item) {
+    return updateLiveTrip(tripId, (trip) => {
+      trip.items.unshift({ id: uid(), createdAt: Date.now(), ...item });
+    });
   }
 
-  function updateItem(itemId, patch) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    const item = trip.items.find((i) => i.id === itemId);
-    if (!item) return trip;
-    Object.assign(item, patch);
-    return saveActiveTrip(trip) ? trip : null;
+  function updateItem(tripId, itemId, patch) {
+    return updateLiveTrip(tripId, (trip) => {
+      const item = trip.items.find((i) => i.id === itemId);
+      if (item) Object.assign(item, patch);
+    });
   }
 
-  function deleteItem(itemId) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    trip.items = trip.items.filter((i) => i.id !== itemId);
-    return saveActiveTrip(trip) ? trip : null;
+  function deleteItem(tripId, itemId) {
+    return updateLiveTrip(tripId, (trip) => {
+      trip.items = trip.items.filter((i) => i.id !== itemId);
+    });
   }
 
   // Payments are logged at the trip level (a lump sum someone paid, e.g.
@@ -114,19 +136,24 @@ const DB = (() => {
   // don't need to correspond to any single item, so settling up works the
   // same whether one person covers the whole cart or several people chip in
   // at different points during (or after) the trip.
-  function addPayment(payment) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    if (!trip.payments) trip.payments = [];
-    trip.payments.unshift({ id: uid(), createdAt: Date.now(), ...payment });
-    return saveActiveTrip(trip) ? trip : null;
+  function addPayment(tripId, payment) {
+    return updateLiveTrip(tripId, (trip) => {
+      if (!trip.payments) trip.payments = [];
+      trip.payments.unshift({ id: uid(), createdAt: Date.now(), ...payment });
+    });
   }
 
-  function deletePayment(paymentId) {
-    const trip = getActiveTrip();
-    if (!trip) return null;
-    trip.payments = (trip.payments || []).filter((p) => p.id !== paymentId);
-    return saveActiveTrip(trip) ? trip : null;
+  function deletePayment(tripId, paymentId) {
+    return updateLiveTrip(tripId, (trip) => {
+      trip.payments = (trip.payments || []).filter((p) => p.id !== paymentId);
+    });
+  }
+
+  // Removes a trip that's still in progress — abandoning it, not ending it,
+  // so it does NOT get archived to history. Returns true on success.
+  function deleteLiveTrip(tripId) {
+    const trips = getLiveTrips().filter((t) => t.id !== tripId);
+    return saveLiveTrips(trips);
   }
 
   function getHistory() {
@@ -135,39 +162,44 @@ const DB = (() => {
   }
 
   // Returns true on success, false if the write failed.
-  function deleteTrip(tripId) {
+  function deleteHistoryTrip(tripId) {
     const history = getHistory().filter((t) => t.id !== tripId);
     return saveHistory(history);
   }
 
-  // Returns true on success, false if the write failed (the active trip is
-  // left in place so it isn't lost if archiving it doesn't fit in storage).
-  function endActiveTrip() {
-    const trip = getActiveTrip();
-    if (!trip) return false;
+  // Moves a trip from the live list to history. Returns true on success,
+  // false if the write failed (the trip is left in the live list if
+  // archiving it doesn't fit in storage, so it isn't lost).
+  function endTrip(tripId) {
+    const trips = getLiveTrips();
+    const idx = trips.findIndex((t) => t.id === tripId);
+    if (idx === -1) return false;
+    const trip = trips[idx];
     trip.endedAt = Date.now();
     const history = getHistory();
     history.unshift(trip);
     if (!saveHistory(history)) return false;
-    clearActiveTrip();
-    return true;
+    trips.splice(idx, 1);
+    return saveLiveTrips(trips);
   }
 
   return {
     uid,
-    getActiveTrip,
+    getLiveTrips,
+    getLiveTrip,
     createTrip,
     renameTrip,
-    addPersonToActiveTrip,
+    addPersonToTrip,
     renamePerson,
-    removePersonFromActiveTrip,
+    removePersonFromTrip,
     addItem,
     updateItem,
     deleteItem,
     addPayment,
     deletePayment,
+    deleteLiveTrip,
     getHistory,
-    deleteTrip,
-    endActiveTrip,
+    deleteHistoryTrip,
+    endTrip,
   };
 })();
