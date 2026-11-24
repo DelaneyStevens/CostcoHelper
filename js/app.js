@@ -1,6 +1,6 @@
 // CartShare — shopping trip expense tracker with per-person attribution.
 
-let activeTrip = null;
+let currentTrip = null; // the trip open in the shopping screen, or null elsewhere
 let pendingPhotoDataUrl = null;
 let selectedPeopleIds = new Set();
 let attributionMode = "everyone"; // 'everyone' | 'custom' | 'single'
@@ -24,18 +24,13 @@ function init() {
   cacheEls();
   bindEvents();
   registerServiceWorker();
-
-  activeTrip = DB.getActiveTrip();
-  if (activeTrip) {
-    showShoppingScreen();
-  } else {
-    showSetupScreen();
-  }
+  showHomeScreen();
 }
 
 function cacheEls() {
   els.tripTitle = document.getElementById("tripTitle");
   els.tripSubtitle = document.getElementById("tripSubtitle");
+  els.backToHomeBtn = document.getElementById("backToHomeBtn");
   els.menuBtn = document.getElementById("menuBtn");
   els.menuPanel = document.getElementById("menuPanel");
   els.newTripBtn = document.getElementById("newTripBtn");
@@ -43,6 +38,11 @@ function cacheEls() {
   els.historyBtn = document.getElementById("historyBtn");
   els.shareTripBtn = document.getElementById("shareTripBtn");
   els.endTripBtn = document.getElementById("endTripBtn");
+
+  els.homeScreen = document.getElementById("homeScreen");
+  els.homeTripList = document.getElementById("homeTripList");
+  els.homeEmpty = document.getElementById("homeEmpty");
+  els.startNewTripBtn = document.getElementById("startNewTripBtn");
 
   els.setupScreen = document.getElementById("setupScreen");
   els.backFromSetupBtn = document.getElementById("backFromSetupBtn");
@@ -131,27 +131,25 @@ function bindEvents() {
     }
   });
 
+  els.backToHomeBtn.addEventListener("click", showHomeScreen);
+  els.startNewTripBtn.addEventListener("click", showSetupScreen);
+
   els.newTripBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (activeTrip && !confirm("Start a new trip? This one will move to Past Trips once you start the new one.")) {
-      return;
-    }
     showSetupScreen();
   });
 
-  els.backFromSetupBtn.addEventListener("click", () => {
-    if (activeTrip) showShoppingScreen();
-  });
+  els.backFromSetupBtn.addEventListener("click", showHomeScreen);
 
   els.editTripBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (!activeTrip) return;
+    if (!currentTrip) return;
     openEditTripModal();
   });
 
   els.paymentsBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (!activeTrip) return;
+    if (!currentTrip) return;
     openPaymentsModal();
   });
 
@@ -162,27 +160,24 @@ function bindEvents() {
 
   els.shareTripBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (!activeTrip) return;
-    shareTrip(activeTrip);
+    if (!currentTrip) return;
+    shareTrip(currentTrip);
   });
 
   els.endTripBtn.addEventListener("click", () => {
     els.menuPanel.classList.add("hidden");
-    if (!activeTrip) return;
+    if (!currentTrip) return;
     openSummaryModal();
   });
 
-  els.backFromHistory.addEventListener("click", () => {
-    if (activeTrip) showShoppingScreen();
-    else showSetupScreen();
-  });
+  els.backFromHistory.addEventListener("click", showHomeScreen);
 
   els.backFromHistoryDetail.addEventListener("click", showHistoryScreen);
 
   els.deleteHistoryTripBtn.addEventListener("click", () => {
     if (!viewingHistoryTrip) return;
     if (confirm("Delete this trip? This cannot be undone.")) {
-      if (!DB.deleteTrip(viewingHistoryTrip.id)) {
+      if (!DB.deleteHistoryTrip(viewingHistoryTrip.id)) {
         alertStorageFailure();
         return;
       }
@@ -258,64 +253,123 @@ function bindEvents() {
   els.downloadReceiptBtn.addEventListener("click", () => downloadReceipt(summaryTrip));
   els.confirmEndTripBtn.addEventListener("click", () => {
     if (confirm("End this trip? It will be moved to Past Trips.")) {
-      if (!DB.endActiveTrip()) {
+      if (!DB.endTrip(currentTrip.id)) {
         alertStorageFailure();
         return;
       }
-      activeTrip = null;
+      currentTrip = null;
       els.summaryModal.classList.add("hidden");
-      showSetupScreen();
+      showHomeScreen();
     }
   });
 }
 
 // ---------- Screens ----------
 
+// Shows/hides the menu items that only make sense while viewing a specific
+// trip (Edit Trip, Payments, Share Trip, End Trip) — called from
+// hideAllScreens() so every navigation keeps it in sync with currentTrip.
+function updateTripMenuVisibility() {
+  const show = !!currentTrip;
+  els.editTripBtn.classList.toggle("hidden", !show);
+  els.paymentsBtn.classList.toggle("hidden", !show);
+  els.shareTripBtn.classList.toggle("hidden", !show);
+  els.endTripBtn.classList.toggle("hidden", !show);
+}
+
 function hideAllScreens() {
+  els.homeScreen.classList.add("hidden");
   els.setupScreen.classList.add("hidden");
   els.shoppingScreen.classList.add("hidden");
   els.historyScreen.classList.add("hidden");
   els.historyDetailScreen.classList.add("hidden");
+  updateTripMenuVisibility();
+}
+
+function showHomeScreen() {
+  currentTrip = null;
+  hideAllScreens();
+  els.backToHomeBtn.classList.add("hidden");
+  els.homeScreen.classList.remove("hidden");
+  els.tripTitle.textContent = "🛒 CartShare";
+  els.tripSubtitle.textContent = "";
+  renderHomeTripList();
+}
+
+function renderHomeTripList() {
+  const trips = DB.getLiveTrips().slice().sort((a, b) => b.createdAt - a.createdAt);
+  els.homeTripList.innerHTML = "";
+  els.homeEmpty.classList.toggle("hidden", trips.length > 0);
+
+  trips.forEach((trip) => {
+    const { grandTotal } = computeTotals(trip);
+    const li = document.createElement("li");
+    li.className = "history-card";
+    li.innerHTML = `
+      <div class="history-card-main">
+        ${trip.name ? `<div class="hname">${escapeHtml(trip.name)}</div>` : ""}
+        <div class="hdate">${formatDate(trip.createdAt)} · ${trip.people.length} people · ${trip.items.length} items</div>
+        <div class="htotal">${formatMoney(grandTotal)}</div>
+      </div>
+      <button type="button" class="history-delete" aria-label="Delete trip">🗑️</button>
+    `;
+    li.addEventListener("click", () => openTrip(trip.id));
+    li.querySelector(".history-delete").addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (confirm("Delete this trip? This cannot be undone.")) {
+        if (!DB.deleteLiveTrip(trip.id)) {
+          alertStorageFailure();
+          return;
+        }
+        renderHomeTripList();
+      }
+    });
+    els.homeTripList.appendChild(li);
+  });
 }
 
 function showSetupScreen() {
+  currentTrip = null;
   hideAllScreens();
-  editingSetupPeople = activeTrip ? [...activeTrip.people] : [];
+  editingSetupPeople = [];
   els.tripNameInput.value = "";
   renderSetupPeopleList();
-  els.backFromSetupBtn.classList.toggle("hidden", !activeTrip);
+  els.backToHomeBtn.classList.add("hidden");
   els.setupScreen.classList.remove("hidden");
   els.tripTitle.textContent = "🛒 CartShare";
   els.tripSubtitle.textContent = "";
 }
 
-function showShoppingScreen() {
-  activeTrip = DB.getActiveTrip();
-  if (!activeTrip) {
-    showSetupScreen();
+function openTrip(tripId) {
+  const trip = DB.getLiveTrip(tripId);
+  if (!trip) {
+    showHomeScreen();
     return;
   }
+  currentTrip = trip;
   hideAllScreens();
   expandedItemId = null;
   filterPersonId = null;
+  els.backToHomeBtn.classList.remove("hidden");
   els.shoppingScreen.classList.remove("hidden");
   refreshShoppingScreen();
 }
 
-// Re-reads activeTrip's name/people into the header and re-renders the
-// totals bar + settle-up + item list — used both when first showing the
-// shopping screen and after editing the trip's name, shoppers, items, or
-// payments from the menu.
+// Re-reads currentTrip's name/people into the header and re-renders the
+// totals bar + settle-up + item list — used both when first opening a trip
+// and after editing its name, shoppers, items, or payments from the menu.
 function refreshShoppingScreen() {
-  els.tripTitle.textContent = activeTrip.name ? `🛒 ${activeTrip.name}` : "🛒 Shopping Trip";
-  els.tripSubtitle.textContent = `${activeTrip.people.length} people · started ${formatTime(activeTrip.createdAt)}`;
+  els.tripTitle.textContent = currentTrip.name ? `🛒 ${currentTrip.name}` : "🛒 Shopping Trip";
+  els.tripSubtitle.textContent = `${currentTrip.people.length} people · started ${formatTime(currentTrip.createdAt)}`;
   renderTotals();
-  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
+  renderSettlement(els.shoppingSettlement, currentTrip, { onPaymentsClick: openPaymentsModal });
   renderItemList();
 }
 
 function showHistoryScreen() {
+  currentTrip = null;
   hideAllScreens();
+  els.backToHomeBtn.classList.add("hidden");
   els.historyScreen.classList.remove("hidden");
   els.tripTitle.textContent = "📜 Past Trips";
   els.tripSubtitle.textContent = "";
@@ -358,8 +412,7 @@ function startTrip() {
     alertStorageFailure();
     return;
   }
-  activeTrip = trip;
-  showShoppingScreen();
+  openTrip(trip.id);
 }
 
 // ---------- Shopping screen: totals & items ----------
@@ -465,7 +518,8 @@ function simplifyDebts(balanceCents, people) {
   return transactions;
 }
 
-// Shared by the Trip Summary modal and the past-trip detail screen.
+// Shared by the shopping screen, the Trip Summary modal, and the past-trip
+// detail screen.
 function renderSettlement(container, trip, options) {
   const { transactions, totalPaidCents, totalOwedCents } = computeSettlement(trip);
   const peopleById = {};
@@ -544,10 +598,10 @@ function renderTotalsBar(container, trip, totals, grandTotal, selectedPersonId, 
 }
 
 function renderTotals() {
-  const { totals, grandTotal } = computeTotals(activeTrip);
+  const { totals, grandTotal } = computeTotals(currentTrip);
   renderTotalsBar(
     els.totalsBar,
-    activeTrip,
+    currentTrip,
     totals,
     grandTotal,
     filterPersonId,
@@ -565,14 +619,14 @@ function renderTotals() {
 }
 
 function itemTargets(item) {
-  return item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id);
+  return item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : currentTrip.people.map((p) => p.id);
 }
 
 function renderItemList() {
   els.itemList.innerHTML = "";
 
-  const filterPerson = filterPersonId ? activeTrip.people.find((p) => p.id === filterPersonId) : null;
-  const items = filterPerson ? activeTrip.items.filter((item) => itemTargets(item).includes(filterPerson.id)) : activeTrip.items;
+  const filterPerson = filterPersonId ? currentTrip.people.find((p) => p.id === filterPersonId) : null;
+  const items = filterPerson ? currentTrip.items.filter((item) => itemTargets(item).includes(filterPerson.id)) : currentTrip.items;
 
   els.itemListTitle.textContent = filterPerson ? `${filterPerson.name}'s Items` : "Items";
   els.itemCount.textContent = items.length;
@@ -614,13 +668,13 @@ function renderItemList() {
 
     li.querySelector(".item-delete").addEventListener("click", () => {
       if (confirm("Delete this item?")) {
-        if (!DB.deleteItem(item.id)) {
+        if (!DB.deleteItem(currentTrip.id, item.id)) {
           alertStorageFailure();
           return;
         }
-        activeTrip = DB.getActiveTrip();
+        currentTrip = DB.getLiveTrip(currentTrip.id);
         renderTotals();
-        renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
+        renderSettlement(els.shoppingSettlement, currentTrip, { onPaymentsClick: openPaymentsModal });
         renderItemList();
       }
     });
@@ -648,10 +702,10 @@ function buildQuickSplitPanel(item) {
   panel.appendChild(hint);
 
   const currentTargets = new Set(
-    item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : activeTrip.people.map((p) => p.id)
+    item.attributedTo && item.attributedTo.length > 0 ? item.attributedTo : currentTrip.people.map((p) => p.id)
   );
 
-  activeTrip.people.forEach((person) => {
+  currentTrip.people.forEach((person) => {
     const row = document.createElement("label");
     row.className = "quick-split-row";
     const checked = currentTargets.has(person.id);
@@ -674,15 +728,15 @@ function buildQuickSplitPanel(item) {
         e.target.checked = true;
         return;
       }
-      if (!DB.updateItem(item.id, { attributedTo: Array.from(next) })) {
+      if (!DB.updateItem(currentTrip.id, item.id, { attributedTo: Array.from(next) })) {
         alertStorageFailure();
-        activeTrip = DB.getActiveTrip();
+        currentTrip = DB.getLiveTrip(currentTrip.id);
         renderItemList(); // revert the checkbox to the actually-persisted state
         return;
       }
-      activeTrip = DB.getActiveTrip();
+      currentTrip = DB.getLiveTrip(currentTrip.id);
       renderTotals();
-      renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
+      renderSettlement(els.shoppingSettlement, currentTrip, { onPaymentsClick: openPaymentsModal });
       renderItemList();
     });
 
@@ -723,13 +777,13 @@ function describeAttributionFor(trip, targets) {
 }
 
 function describeAttribution(item) {
-  return describeAttributionFor(activeTrip, itemTargets(item));
+  return describeAttributionFor(currentTrip, itemTargets(item));
 }
 
 // ---------- Edit Trip modal ----------
 
 function openEditTripModal() {
-  els.editTripNameInput.value = activeTrip.name || "";
+  els.editTripNameInput.value = currentTrip.name || "";
   els.editPersonNameInput.value = "";
   renderEditPeopleList();
   els.editTripModal.classList.remove("hidden");
@@ -740,12 +794,12 @@ function closeEditTripModal() {
 }
 
 function saveTripEdits() {
-  const result = DB.renameTrip(els.editTripNameInput.value);
+  const result = DB.renameTrip(currentTrip.id, els.editTripNameInput.value);
   if (!result) {
     alertStorageFailure();
     return;
   }
-  activeTrip = result;
+  currentTrip = result;
   closeEditTripModal();
   refreshShoppingScreen();
 }
@@ -761,7 +815,7 @@ function personHasExplicitItems(trip, personId) {
 function renderEditPeopleList() {
   els.editPeopleList.innerHTML = "";
 
-  activeTrip.people.forEach((person) => {
+  currentTrip.people.forEach((person) => {
     const li = document.createElement("li");
 
     const nameSpan = document.createElement("span");
@@ -791,12 +845,12 @@ function renderEditPeopleList() {
 function addEditPerson() {
   const name = els.editPersonNameInput.value.trim();
   if (!name) return;
-  const result = DB.addPersonToActiveTrip(name);
+  const result = DB.addPersonToTrip(currentTrip.id, name);
   if (!result) {
     alertStorageFailure();
     return;
   }
-  activeTrip = result;
+  currentTrip = result;
   els.editPersonNameInput.value = "";
   renderEditPeopleList();
   refreshShoppingScreen();
@@ -807,32 +861,32 @@ function renameEditPerson(person) {
   if (newName === null) return; // cancelled
   const trimmed = newName.trim();
   if (!trimmed || trimmed === person.name) return;
-  const result = DB.renamePerson(person.id, trimmed);
+  const result = DB.renamePerson(currentTrip.id, person.id, trimmed);
   if (!result) {
     alertStorageFailure();
     return;
   }
-  activeTrip = result;
+  currentTrip = result;
   renderEditPeopleList();
   refreshShoppingScreen();
 }
 
 function removeEditPerson(person) {
-  if (activeTrip.people.length <= 1) {
+  if (currentTrip.people.length <= 1) {
     alert("A trip needs at least one person.");
     return;
   }
-  if (personHasExplicitItems(activeTrip, person.id)) {
+  if (personHasExplicitItems(currentTrip, person.id)) {
     alert(`Can't remove ${person.name} — they have items attributed to them. Reassign or delete those items first.`);
     return;
   }
   if (!confirm(`Remove ${person.name} from this trip?`)) return;
-  const result = DB.removePersonFromActiveTrip(person.id);
+  const result = DB.removePersonFromTrip(currentTrip.id, person.id);
   if (!result) {
     alertStorageFailure();
     return;
   }
-  activeTrip = result;
+  currentTrip = result;
   renderEditPeopleList();
   refreshShoppingScreen();
 }
@@ -855,7 +909,7 @@ function closePaymentsModal() {
 function renderPaymentPayerList() {
   els.paymentPayerList.innerHTML = "";
 
-  activeTrip.people.forEach((person) => {
+  currentTrip.people.forEach((person) => {
     const li = document.createElement("li");
     li.textContent = person.name;
     li.dataset.personId = person.id;
@@ -871,12 +925,12 @@ function renderPaymentPayerList() {
 }
 
 function renderPaymentsList() {
-  const payments = activeTrip.payments || [];
+  const payments = currentTrip.payments || [];
   els.paymentsListEl.innerHTML = "";
   els.paymentsEmpty.classList.toggle("hidden", payments.length > 0);
 
   payments.forEach((payment) => {
-    const payer = activeTrip.people.find((p) => p.id === payment.payerId);
+    const payer = currentTrip.people.find((p) => p.id === payment.payerId);
     const li = document.createElement("li");
 
     const info = document.createElement("div");
@@ -923,31 +977,31 @@ function handleAddPayment() {
   }
   const note = els.paymentNoteInput.value.trim();
 
-  const result = DB.addPayment({ payerId: selectedPaymentPayerId, amount, note });
+  const result = DB.addPayment(currentTrip.id, { payerId: selectedPaymentPayerId, amount, note });
   if (!result) {
     alertStorageFailure();
     return;
   }
-  activeTrip = result;
+  currentTrip = result;
 
   selectedPaymentPayerId = null;
   els.paymentAmountInput.value = "";
   els.paymentNoteInput.value = "";
   renderPaymentPayerList();
   renderPaymentsList();
-  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
+  renderSettlement(els.shoppingSettlement, currentTrip, { onPaymentsClick: openPaymentsModal });
 }
 
 function handleDeletePayment(paymentId) {
   if (!confirm("Delete this payment?")) return;
-  const result = DB.deletePayment(paymentId);
+  const result = DB.deletePayment(currentTrip.id, paymentId);
   if (!result) {
     alertStorageFailure();
     return;
   }
-  activeTrip = result;
+  currentTrip = result;
   renderPaymentsList();
-  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
+  renderSettlement(els.shoppingSettlement, currentTrip, { onPaymentsClick: openPaymentsModal });
 }
 
 // ---------- Photo capture ----------
@@ -1109,9 +1163,9 @@ function openItemModal(photoDataUrl, existingItem) {
   const targets =
     existingItem && existingItem.attributedTo && existingItem.attributedTo.length > 0
       ? existingItem.attributedTo
-      : activeTrip.people.map((p) => p.id);
+      : currentTrip.people.map((p) => p.id);
 
-  if (targets.length === activeTrip.people.length) {
+  if (targets.length === currentTrip.people.length) {
     attributionMode = "everyone";
     selectedPeopleIds = new Set();
   } else if (targets.length === 1) {
@@ -1158,7 +1212,7 @@ function renderAttributionPeopleList() {
   }
   els.attributionPeopleList.classList.remove("hidden");
 
-  activeTrip.people.forEach((person) => {
+  currentTrip.people.forEach((person) => {
     const li = document.createElement("li");
     li.textContent = person.name;
     li.dataset.personId = person.id;
@@ -1211,7 +1265,7 @@ function saveItem() {
 
   let attributedTo;
   if (attributionMode === "everyone") {
-    attributedTo = activeTrip.people.map((p) => p.id);
+    attributedTo = currentTrip.people.map((p) => p.id);
   } else {
     attributedTo = Array.from(selectedPeopleIds);
     if (attributedTo.length === 0) {
@@ -1231,28 +1285,28 @@ function saveItem() {
     attributedTo,
   };
 
-  const result = editingItemId ? DB.updateItem(editingItemId, fields) : DB.addItem(fields);
+  const result = editingItemId ? DB.updateItem(currentTrip.id, editingItemId, fields) : DB.addItem(currentTrip.id, fields);
   if (!result) {
     alertStorageFailure();
     return; // keep the modal open so the user's input isn't lost
   }
 
-  activeTrip = DB.getActiveTrip();
+  currentTrip = DB.getLiveTrip(currentTrip.id);
   closeItemModal();
   renderTotals();
-  renderSettlement(els.shoppingSettlement, activeTrip, { onPaymentsClick: openPaymentsModal });
+  renderSettlement(els.shoppingSettlement, currentTrip, { onPaymentsClick: openPaymentsModal });
   renderItemList();
 }
 
 // ---------- Summary / end trip ----------
 
 function openSummaryModal() {
-  summaryTrip = activeTrip;
-  els.summaryTitle.textContent = activeTrip.name ? activeTrip.name : "Trip Summary";
-  const { totals, grandTotal } = computeTotals(activeTrip);
+  summaryTrip = currentTrip;
+  els.summaryTitle.textContent = currentTrip.name ? currentTrip.name : "Trip Summary";
+  const { totals, grandTotal } = computeTotals(currentTrip);
   els.summaryContent.innerHTML = "";
 
-  activeTrip.people.forEach((person) => {
+  currentTrip.people.forEach((person) => {
     const row = document.createElement("div");
     row.className = "summary-person-row";
     row.innerHTML = `<span>${escapeHtml(person.name)}</span><span>${formatMoney(totals[person.id] || 0)}</span>`;
@@ -1264,7 +1318,7 @@ function openSummaryModal() {
   totalRow.innerHTML = `<span>Trip Total</span><span>${formatMoney(grandTotal)}</span>`;
   els.summaryContent.appendChild(totalRow);
 
-  renderSettlement(els.summarySettlement, activeTrip);
+  renderSettlement(els.summarySettlement, currentTrip);
 
   els.summaryModal.classList.remove("hidden");
 }
@@ -1383,7 +1437,7 @@ function renderHistory() {
     li.querySelector(".history-delete").addEventListener("click", (e) => {
       e.stopPropagation();
       if (confirm("Delete this trip? This cannot be undone.")) {
-        if (!DB.deleteTrip(trip.id)) {
+        if (!DB.deleteHistoryTrip(trip.id)) {
           alertStorageFailure();
           return;
         }
@@ -1395,9 +1449,11 @@ function renderHistory() {
 }
 
 function showHistoryDetailScreen(trip) {
+  currentTrip = null;
   viewingHistoryTrip = trip;
   historyDetailFilterPersonId = null;
   hideAllScreens();
+  els.backToHomeBtn.classList.add("hidden");
   els.historyDetailScreen.classList.remove("hidden");
   els.tripTitle.textContent = "📜 Past Trips";
   els.tripSubtitle.textContent = "";

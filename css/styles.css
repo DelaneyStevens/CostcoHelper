@@ -82,11 +82,21 @@ body {
   justify-content: space-between;
 }
 
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .header-row h1 {
   font-family: "Outfit", sans-serif;
   font-weight: 700;
   font-size: 1.15rem;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trip-subtitle {
